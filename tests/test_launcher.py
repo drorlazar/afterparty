@@ -147,3 +147,18 @@ def test_stop_server_signals_only_a_process_that_is_our_server(tmp_path, monkeyp
         a, 0, "/usr/bin/python3 -B -m cleanup.cli serve --live --port 1\n", ""))
     assert launcher.stop_server(state_path=str(state)) == (True, "")
     assert seen["kill"] == [os.getpid()]
+
+
+def test_a_failed_start_reports_why_with_this_starts_server_log(tmp_path, env, monkeypatch):
+    # CI only shows the exception: it must carry the exit status and what this start wrote to server.log
+    monkeypatch.setenv("HOME", env["HOME"])
+    state = tmp_path / "server.json"
+    (tmp_path / "server.log").write_text("an older run's line\n")
+    bad = tmp_path / "python"
+    bad.write_text("#!/bin/sh\necho 'Traceback: ImportError: no module named boom' >&2\nexit 3\n")
+    bad.chmod(0o755)
+    with pytest.raises(RuntimeError) as e:
+        launcher.ensure_server(open_browser=False, state_path=str(state), python=str(bad), wait=10)
+    msg = str(e.value)
+    assert "exited with status 3" in msg and "no module named boom" in msg and "older run" not in msg
+    assert str(tmp_path / "server.log") in msg and not state.exists()

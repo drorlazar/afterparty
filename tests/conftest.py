@@ -110,6 +110,10 @@ def _default_afterparty_dirs(tmp_path, monkeypatch, _default_xcode_select):
     monkeypatch.setenv("AFTERPARTY_XCODE_APPS", str(tmp_path / "_no_xcode" / "Xcode*.app"))  # nor an installed Xcode
     # nor the Xcode the host's xcode-select names (discovery tests set their own selector)
     monkeypatch.setenv("AFTERPARTY_XCODE_SELECT", str(_default_xcode_select))
+    # never a real Claude Code: an in-process server finds no `claude` unless the test stubs agent_claude_fn
+    # (CI machines have none, developer Macs do; a test must pass on both)
+    from cleanup.server import app as server_app
+    monkeypatch.setattr(server_app.App, "_find_claude", lambda self, refresh=False: None)
 
 
 @pytest.fixture
@@ -142,6 +146,23 @@ def env(tmp_path):
     e["AFTERPARTY_TEST_TRASH_DIR"] = str(trash_dir)
     e["AFTERPARTY_NO_NOTIFY"] = "1"  # tests never post real macOS notifications
     return e
+
+
+def recorded_python(python=sys.executable, env=None):
+    """The interpreter the installer records (sidecar, config, every plist's ProgramArguments[0]) when given `python`:
+    fda.real_executable's answer, which is NOT sys.executable for Apple's /usr/bin/python3 (the inner Python.app
+    binary), Homebrew (the version-free opt path) or a patched framework. Computed in this process, or with `env`
+    in a fresh interpreter exactly as the installer subprocess sees it. Also checks it is the same interpreter
+    (the same Full Disk Access entry), so a test comparing against it still pins down what was recorded."""
+    from cleanup import fda
+    if env is None:
+        got = fda.real_executable(python)
+    else:
+        code = "import sys; from cleanup.fda import real_executable; print(real_executable(sys.argv[1]))"
+        got = subprocess.run([python, "-B", "-c", code, python], env=dict(env, PYTHONPATH=str(REPO)), cwd=str(REPO),
+                             capture_output=True, text=True, check=True, timeout=120).stdout.strip()
+    assert got and os.path.isabs(got) and fda.fda_binary(got) == fda.fda_binary(python), (python, got)
+    return got
 
 
 def set_config(env, **values):

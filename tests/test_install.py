@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from tests.conftest import REPO, fake_app_builder, make_installer, names, snapshot
+from tests.conftest import REPO, fake_app_builder, make_installer, names, recorded_python, snapshot
 
 AP = "io.github.drorlazar.afterparty"
 
@@ -51,7 +51,8 @@ def test_install_creates_what_the_plan_listed(installer):
     h = installer.home
     assert os.readlink(h / ".local/bin/afterparty") == os.path.join(str(REPO), "bin", "afterparty")
     cfg = json.loads((h / ".config/afterparty/config.json").read_text())
-    assert cfg["python"] == sys.executable and cfg["roots"] == ["~/Projects"] and cfg["keep"] == ["~/Projects/keepme"]
+    py = recorded_python(env=installer.env)
+    assert cfg["python"] == py and cfg["roots"] == ["~/Projects"] and cfg["keep"] == ["~/Projects/keepme"]
     assert cfg["autopilot"] == "report" and cfg["agent"]["enabled"] is False
     for name in ("tidy", "afterparty"):
         assert (h / ".claude/skills" / name / "SKILL.md").read_text() == (REPO / "skills" / name / "SKILL.md").read_text()
@@ -60,7 +61,7 @@ def test_install_creates_what_the_plan_listed(installer):
     assert settings["hooks"]["SessionEnd"] == [{"hooks": [{"type": "command", "command": cmd, "timeout": 10}]}]
     for job in ("weekly", "spacecheck"):
         plist = h / "Library/LaunchAgents" / (AP + "." + job + ".plist")
-        assert plistlib.loads(plist.read_bytes())["ProgramArguments"][:2] == [sys.executable, "-B"]
+        assert plistlib.loads(plist.read_bytes())["ProgramArguments"][:2] == [py, "-B"]
         assert (installer.launchd / (AP + "." + job)).exists()          # loaded, as launchctl print reports
     man = _manifest(installer)
     assert sorted({i["kind"] for i in man["items"]}) == ["config", "dir", "hook", "job", "link", "skill"]
@@ -88,7 +89,7 @@ def test_existing_config_values_are_kept(installer):
     assert installer.run("--yes", "--root", "~/Projects", "--agent", "yes").returncode == 0
     cfg = json.loads((cdir / "config.json").read_text())
     assert cfg["roots"] == ["~/Work", "~/Projects"] and cfg["autopilot"] == "clean" and cfg["low_space_gb"] == 20
-    assert cfg["agent"]["enabled"] is True and cfg["python"] == sys.executable
+    assert cfg["agent"]["enabled"] is True and cfg["python"] == recorded_python(env=installer.env)
 
 
 def test_install_keeps_a_protection_added_after_planning(installer, monkeypatch):

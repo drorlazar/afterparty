@@ -165,7 +165,8 @@ def test_update_migrates_a_stub_sidecar(tmp_path, monkeypatch):
     (cfg / "config.json").write_text(json.dumps(c))
     (cfg / "python").write_text(str(stub) + "\n")
     plist = inst_env.home / "Library/LaunchAgents/io.github.drorlazar.afterparty.weekly.plist"
-    assert plistlib.loads(plist.read_bytes())["ProgramArguments"][0] == sys.executable
+    from tests.conftest import recorded_python
+    assert plistlib.loads(plist.read_bytes())["ProgramArguments"][0] == recorded_python()  # under this test's CLT patch
     import types
     ran = []
 

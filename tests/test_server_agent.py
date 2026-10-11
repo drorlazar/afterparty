@@ -26,6 +26,7 @@ def ag_off(tmp_path, monkeypatch):
         return Done(json.dumps({"is_error": False, "total_cost_usd": 0.02, "structured_output": good(
             proposed=[{"path": str(home / "disk/proj/build"), "action": "delete", "reason": "build output"}])}))
     app.agent_run_fn = run
+    app.agent_claude_fn = lambda refresh=False: "/stub/bin/claude"  # hermetic: never looks for a real claude
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     def call(path, body):

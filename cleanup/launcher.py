@@ -116,6 +116,29 @@ def _start_launchd(python, port, token, state_dir, label):
     raise RuntimeError(f"couldn't start the Afterparty server with launchd: {err}")
 
 
+LOG_TAIL = 4000  # bytes of server.log quoted in a start failure
+
+
+def _start_failure(proc, dead, wait, log_path, log_start):
+    """Why the server didn't come up, with what it wrote to server.log during this start (the token never goes
+    there: it is passed in the environment and the server doesn't print it)."""
+    if proc is not None and proc.poll() is not None:
+        why = "the server process exited with status %s" % proc.returncode
+    elif dead:
+        why = "the launchd job isn't running"
+    else:
+        why = "the server didn't answer within %gs" % wait
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(log_start)
+            out = f.read()
+    except OSError:
+        out = b""
+    tail = out[-LOG_TAIL:].decode("utf-8", "replace").strip()
+    return "Afterparty server failed to start (%s) — see %s%s" % (
+        why, log_path, (":\n" + tail) if tail else " (it wrote nothing)")
+
+
 def stop_server(state_path=None, label=SERVER_LABEL):
     """(ok, why): ok when no Afterparty server job of ours is left loaded. The state file only says how the server
     was started; it never chooses what is stopped: only our own `label` is booted out, and only a pid that `ps`
@@ -162,10 +185,15 @@ def ensure_server(open_browser=True, python=None, state_path=None, wait=15.0, mo
             else _free_port()
         token = secrets.token_hex(16)
         proc = None
+        log_path = os.path.join(state_dir, "server.log")
+        try:
+            log_start = os.path.getsize(log_path)  # report only what this start wrote (the log is appended to)
+        except OSError:
+            log_start = 0
         if mode == "launchd":
             _start_launchd(python, port, token, state_dir, label)
         else:
-            log = open(os.path.join(state_dir, "server.log"), "ab")
+            log = open(log_path, "ab")
             env = dict(os.environ, PYTHONPATH=REPO, CLEANUP_TOKEN=token)  # never in argv: `ps` is world-readable
             proc = subprocess.Popen([python, "-B", "-m", "cleanup.cli", "serve", "--live", "--port", str(port)],
                                     cwd=REPO, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
@@ -176,7 +204,7 @@ def ensure_server(open_browser=True, python=None, state_path=None, wait=15.0, mo
             dead = (proc is not None and proc.poll() is not None) or \
                 (mode == "launchd" and time.time() - started > 3 and _launchd_pid(label) is None)
             if time.time() > deadline or dead:
-                raise RuntimeError("Afterparty server failed to start — see server.log")
+                raise RuntimeError(_start_failure(proc, dead, wait, log_path, log_start))
             time.sleep(0.1)
         if mode == "launchd":
             s["pid"], s["label"] = _launchd_pid(label), label
