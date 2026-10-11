@@ -33,14 +33,32 @@ def default_state():
     return os.path.join(config.state_dir(), "server.json")
 
 
-def _healthy(s):
+def _status_probe(s, timeout=1.5):
+    """(ok, why): ok when our server answers /api/status with our token; else a short reason (no token in it)."""
     try:
         req = urllib.request.Request(f"http://127.0.0.1:{s['port']}/api/status",
                                      headers={"X-Cleanup-Key": s["token"]})
-        with urllib.request.urlopen(req, timeout=1.5) as r:
-            return r.status == 200
-    except Exception:
-        return False
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status == 200, "HTTP %s" % r.status
+    except Exception as e:  # noqa: BLE001 - any failure means "not healthy"; the reason is only reported
+        return False, "%s: %s" % (type(e).__name__, getattr(e, "reason", None) or e)
+
+
+def _healthy(s, timeout=1.5):
+    return _status_probe(s, timeout)[0]
+
+
+def _port_state(port, timeout=1.0):
+    """What a TCP connect to 127.0.0.1:port says: a listening server, none at all, or one that stopped accepting."""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return "accepts connections"
+    except ConnectionRefusedError:
+        return "isn't listening"
+    except socket.timeout:
+        return "doesn't complete connections (listening but not accepting: queue full?)"
+    except OSError as e:
+        return "can't be reached (%s)" % e
 
 
 def _port_free(port):
@@ -116,18 +134,43 @@ def _start_launchd(python, port, token, state_dir, label):
     raise RuntimeError(f"couldn't start the Afterparty server with launchd: {err}")
 
 
+STATUS_TIMEOUT = 5.0  # per /api/status check while waiting for a new server (a slow first answer still counts)
 LOG_TAIL = 4000  # bytes of server.log quoted in a start failure
+SAMPLE = "/usr/bin/sample"  # macOS stack sampler; works on our own processes without sudo
+SAMPLE_LINES = 60  # lines of its call graph quoted in a start failure
 
 
-def _start_failure(proc, dead, wait, log_path, log_start):
+def _sample(pid, timeout=20):
+    """The first SAMPLE_LINES lines of `sample <pid> 1`'s call graph (where a hung server is stuck), or ""."""
+    try:
+        r = subprocess.run([SAMPLE, str(pid), "1"], capture_output=True, text=True, timeout=timeout,
+                           stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return ""
+    lines = (r.stdout or "").splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("Call graph:"):
+            lines = lines[i:]
+            break
+    return "\n".join(lines[:SAMPLE_LINES]).strip()
+
+
+def _start_failure(proc, dead, wait, log_path, log_start, port=None, last=""):
     """Why the server didn't come up, with what it wrote to server.log during this start (the token never goes
-    there: it is passed in the environment and the server doesn't print it)."""
+    there: it is passed in the environment and the server doesn't print it). When a spawned server is still running
+    but never answered, also whether its port accepts connections, the last probe's error and a stack sample."""
+    hung = False
     if proc is not None and proc.poll() is not None:
         why = "the server process exited with status %s" % proc.returncode
     elif dead:
         why = "the launchd job isn't running"
     else:
         why = "the server didn't answer within %gs" % wait
+        if port is not None:
+            why += "; port %s %s" % (port, _port_state(port))
+        if last:
+            why += "; last check: %s" % last
+        hung = proc is not None
     try:
         with open(log_path, "rb") as f:
             f.seek(log_start)
@@ -135,8 +178,13 @@ def _start_failure(proc, dead, wait, log_path, log_start):
     except OSError:
         out = b""
     tail = out[-LOG_TAIL:].decode("utf-8", "replace").strip()
-    return "Afterparty server failed to start (%s) — see %s%s" % (
+    msg = "Afterparty server failed to start (%s) — see %s%s" % (
         why, log_path, (":\n" + tail) if tail else " (it wrote nothing)")
+    if hung:
+        sample = _sample(proc.pid)
+        if sample:
+            msg += "\nWhere the server process (pid %s) is (sample):\n%s" % (proc.pid, sample)
+    return msg
 
 
 def stop_server(state_path=None, label=SERVER_LABEL):
@@ -193,18 +241,27 @@ def ensure_server(open_browser=True, python=None, state_path=None, wait=15.0, mo
         if mode == "launchd":
             _start_launchd(python, port, token, state_dir, label)
         else:
-            log = open(log_path, "ab")
-            env = dict(os.environ, PYTHONPATH=REPO, CLEANUP_TOKEN=token)  # never in argv: `ps` is world-readable
-            proc = subprocess.Popen([python, "-B", "-m", "cleanup.cli", "serve", "--live", "--port", str(port)],
-                                    cwd=REPO, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
-                                    start_new_session=True)
+            # Spawn mode runs `python` exactly as recorded/given, never fda.real_executable's inner Python.app
+            # binary: Full Disk Access attribution only matters for launchd jobs (a spawned server inherits the
+            # launching app's attribution anyway), and starting a framework's Contents/MacOS/Python directly skips
+            # the bin/python3.x launcher's own setup. Unbuffered, so server.log shows how far a start got.
+            with open(log_path, "ab") as log:
+                env = dict(os.environ, PYTHONPATH=REPO, CLEANUP_TOKEN=token,  # never in argv: `ps` is world-readable
+                           PYTHONUNBUFFERED="1")
+                proc = subprocess.Popen([python, "-B", "-m", "cleanup.cli", "serve", "--live", "--port", str(port)],
+                                        cwd=REPO, env=env, stdout=log, stderr=log, stdin=subprocess.DEVNULL,
+                                        start_new_session=True)
         s = {"pid": proc.pid if proc else None, "port": port, "token": token, "mode": mode}
         started, deadline = time.time(), time.time() + wait
-        while not _healthy(s):
+        last = ""
+        while True:
+            ok, last = _status_probe(s, timeout=STATUS_TIMEOUT)
+            if ok:
+                break
             dead = (proc is not None and proc.poll() is not None) or \
                 (mode == "launchd" and time.time() - started > 3 and _launchd_pid(label) is None)
             if time.time() > deadline or dead:
-                raise RuntimeError(_start_failure(proc, dead, wait, log_path, log_start))
+                raise RuntimeError(_start_failure(proc, dead, wait, log_path, log_start, port, last))
             time.sleep(0.1)
         if mode == "launchd":
             s["pid"], s["label"] = _launchd_pid(label), label

@@ -44,6 +44,10 @@ def main(argv=None, live=False):
         return session_end.main() or 0
     if cmd == "serve":
         import argparse
+        # one line before the heavy imports, one once listening: server.log then shows how far a start got
+        # (never the token: it comes from CLEANUP_TOKEN or --token and isn't printed)
+        print("afterparty server: starting (pid %d, Python %s, %s)" % (
+            os.getpid(), sys.version.split()[0], sys.executable), file=sys.stderr, flush=True)
         from cleanup.server.app import serve
         ap = argparse.ArgumentParser(prog="cleanup serve")
         ap.add_argument("--port", type=int, default=0)
@@ -51,7 +55,9 @@ def main(argv=None, live=False):
         ap.add_argument("--roots", nargs="+", default=["/"])
         ap.add_argument("--live", action="store_true")
         a = ap.parse_args(rest)
-        server, _ = serve(port=a.port, token=a.token or os.environ.pop("CLEANUP_TOKEN", None), roots=a.roots, live=a.live)
+        server, app = serve(port=a.port, token=a.token or os.environ.pop("CLEANUP_TOKEN", None), roots=a.roots,
+                            live=a.live)
+        print("afterparty server: listening on 127.0.0.1:%d" % app.port, file=sys.stderr, flush=True)
         server.serve_forever()
         return 0
     if cmd == "app":

@@ -3,7 +3,7 @@
 <plist version="1.0"><dict>
   <key>Label</key><string>@LABEL@</string>
   <key>ProgramArguments</key><array><string>@PYTHON@</string><string>-B</string><string>-m</string><string>cleanup.cli</string><string>serve</string><string>--live</string><string>--port</string><string>@PORT@</string></array>
-  <key>EnvironmentVariables</key><dict><key>CLEANUP_TOKEN</key><string>@TOKEN@</string><key>PYTHONPATH</key><string>@REPO@</string><key>HOME</key><string>@HOME@</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <key>EnvironmentVariables</key><dict><key>CLEANUP_TOKEN</key><string>@TOKEN@</string><key>PYTHONPATH</key><string>@REPO@</string><key>PYTHONUNBUFFERED</key><string>1</string><key>HOME</key><string>@HOME@</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>WorkingDirectory</key><string>@REPO@</string>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>@LOG@</string>

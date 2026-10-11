@@ -162,3 +162,106 @@ def test_a_failed_start_reports_why_with_this_starts_server_log(tmp_path, env, m
     msg = str(e.value)
     assert "exited with status 3" in msg and "no module named boom" in msg and "older run" not in msg
     assert str(tmp_path / "server.log") in msg and not state.exists()
+
+
+# --- start diagnostics (CI: a python.org 3.12 server stayed alive, silent and unanswered for 15s) ------------------
+
+def test_spawned_server_logs_how_far_it_got_without_the_token(tmp_path, env, monkeypatch):
+    monkeypatch.setenv("HOME", env["HOME"])
+    state = tmp_path / "server.json"
+    launcher.ensure_server(open_browser=False, state_path=str(state), python=sys.executable)
+    s = json.loads(state.read_text())
+    try:
+        log = (tmp_path / "server.log").read_text()
+        assert "afterparty server: starting (pid %d" % s["pid"] in log
+        assert "afterparty server: listening on 127.0.0.1:%d" % s["port"] in log
+        assert s["token"] not in log
+    finally:
+        os.kill(s["pid"], signal.SIGTERM)
+
+
+def test_spawn_runs_the_interpreter_exactly_as_given_and_unbuffered(tmp_path, env, monkeypatch):
+    # spawn mode never swaps in fda.real_executable's inner Python.app binary (that is for launchd jobs only)
+    monkeypatch.setenv("HOME", env["HOME"])
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def fake_popen(argv, **kw):
+        seen["argv"], seen["env"], seen["cwd"] = argv, kw["env"], kw["cwd"]
+        raise Stop
+
+    monkeypatch.setattr(launcher.subprocess, "Popen", fake_popen)
+    from cleanup import fda
+    monkeypatch.setattr(fda, "real_executable", lambda p: pytest.fail("spawn mode must not resolve the interpreter"))
+    given = "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
+    with pytest.raises(Stop):
+        launcher.ensure_server(open_browser=False, state_path=str(tmp_path / "server.json"), python=given)
+    assert seen["argv"][0] == given and seen["argv"][1:5] == ["-B", "-m", "cleanup.cli", "serve"]
+    assert seen["env"]["PYTHONUNBUFFERED"] == "1" and seen["env"]["CLEANUP_TOKEN"] not in " ".join(seen["argv"])
+    assert seen["cwd"] == launcher.REPO
+
+
+def _fake_python(tmp_path, body):
+    """An 'interpreter' that records its pid and then runs `body` (sh), ignoring the server arguments."""
+    py = tmp_path / "fakepy"
+    py.write_text("#!/bin/sh\nfor a; do last=$a; done\necho $$ > %s\n%s\n" % (tmp_path / "fake.pid", body))
+    py.chmod(0o755)
+    return str(py)
+
+
+def _kill_fake(tmp_path):
+    try:
+        os.kill(int((tmp_path / "fake.pid").read_text()), signal.SIGKILL)
+    except (OSError, ValueError):
+        pass
+
+
+def test_start_timeout_says_nothing_listens_and_samples_the_hung_process(tmp_path, env, monkeypatch):
+    monkeypatch.setenv("HOME", env["HOME"])
+    py = _fake_python(tmp_path, "exec /bin/sleep 30")
+    try:
+        with pytest.raises(RuntimeError) as e:
+            launcher.ensure_server(open_browser=False, state_path=str(tmp_path / "server.json"), python=py, wait=1)
+        msg = str(e.value)
+        assert "didn't answer within 1s" in msg and "isn't listening" in msg and "last check: " in msg
+        assert "(it wrote nothing)" in msg
+        if os.access(launcher.SAMPLE, os.X_OK):
+            assert "Where the server process (pid %s) is (sample):" % (tmp_path / "fake.pid").read_text().strip() in msg
+            assert "Call graph:" in msg
+    finally:
+        _kill_fake(tmp_path)
+
+
+def test_start_timeout_tells_a_listening_but_silent_server_apart(tmp_path, env, monkeypatch):
+    monkeypatch.setenv("HOME", env["HOME"])
+    monkeypatch.setattr(launcher, "STATUS_TIMEOUT", 0.3)
+    monkeypatch.setattr(launcher, "_sample", lambda pid: "Call graph:\n    stuck here")
+    listen = ("import socket,sys,time; s=socket.socket(); s.bind(('127.0.0.1', int(sys.argv[1]))); s.listen(128); "
+              "print('fake: listening', flush=True); time.sleep(30)")
+    py = _fake_python(tmp_path, 'exec "%s" -c "%s" "$last"' % (sys.executable, listen))
+    try:
+        with pytest.raises(RuntimeError) as e:
+            launcher.ensure_server(open_browser=False, state_path=str(tmp_path / "server.json"), python=py, wait=2)
+        msg = str(e.value)
+        assert "accepts connections" in msg and "fake: listening" in msg and "stuck here" in msg
+    finally:
+        _kill_fake(tmp_path)
+
+
+def test_sample_quotes_the_call_graph_and_never_fails(tmp_path, monkeypatch):
+    fake = tmp_path / "sample"
+    fake.write_text("#!/bin/sh\necho 'Analysis of sampling'\necho 'Process: x'\necho 'Call graph:'\n"
+                    "i=0; while [ $i -lt 100 ]; do echo \"  frame $i\"; i=$((i+1)); done\n")
+    fake.chmod(0o755)
+    monkeypatch.setattr(launcher, "SAMPLE", str(fake))
+    out = launcher._sample(os.getpid()).splitlines()
+    assert out[0] == "Call graph:" and len(out) == launcher.SAMPLE_LINES and "Process: x" not in out
+    monkeypatch.setattr(launcher, "SAMPLE", str(tmp_path / "missing"))
+    assert launcher._sample(os.getpid()) == ""
+
+
+def test_server_plist_runs_unbuffered():
+    from cleanup.installer import jobs
+    assert "<key>PYTHONUNBUFFERED</key><string>1</string>" in jobs.template("server")
