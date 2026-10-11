@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "sample": false,
+  "note": "Generated from the film timeline by site/tools/chapters-from-timeline.py. Re-run after every re-cut.",
+  "bpm": 124,
+  "duration": 56.85,
+  "chapters": [
+    {
+      "id": "laptop",
+      "start": 0.0,
+      "end": 5.81,
+      "title": "The laptop",
+      "kind": "story"
+    },
+    {
+      "id": "dive",
+      "start": 5.81,
+      "end": 7.02,
+      "title": "Into the drive",
+      "kind": "story"
+    },
+    {
+      "id": "hook",
+      "start": 7.02,
+      "end": 8.47,
+      "title": "Disk full",
+      "kind": "mess"
+    },
+    {
+      "id": "rewind",
+      "start": 8.47,
+      "end": 9.92,
+      "title": "Rewind",
+      "kind": "story"
+    },
+    {
+      "id": "venue",
+      "start": 9.92,
+      "end": 13.79,
+      "title": "The party starts",
+      "kind": "story"
+    },
+    {
+      "id": "guests",
+      "start": 13.79,
+      "end": 18.15,
+      "title": "Render, install, branch",
+      "kind": "mess"
+    },
+    {
+      "id": "mess",
+      "start": 18.15,
+      "end": 22.02,
+      "title": "The mess",
+      "kind": "mess"
+    },
+    {
+      "id": "scratch",
+      "start": 22.02,
+      "end": 23.95,
+      "title": "Record scratch",
+      "kind": "mess"
+    },
+    {
+      "id": "afterparty",
+      "start": 23.95,
+      "end": 27.58,
+      "title": "Meet Afterparty",
+      "kind": "afterparty"
+    },
+    {
+      "id": "habit-1",
+      "start": 27.58,
+      "end": 30.0,
+      "title": "One bin",
+      "kind": "afterparty",
+      "habit": 1
+    },
+    {
+      "id": "habit-2",
+      "start": 30.0,
+      "end": 32.9,
+      "title": "/tidy",
+      "kind": "afterparty",
+      "habit": 2
+    },
+    {
+      "id": "habit-3",
+      "start": 32.9,
+      "end": 36.77,
+      "title": "Sunday sweep",
+      "kind": "afterparty",
+      "habit": 3
+    },
+    {
+      "id": "habit-4",
+      "start": 36.77,
+      "end": 43.06,
+      "title": "The map",
+      "kind": "afterparty",
+      "habit": 4
+    },
+    {
+      "id": "promise",
+      "start": 43.06,
+      "end": 50.32,
+      "title": "The promise",
+      "kind": "afterparty"
+    },
+    {
+      "id": "encore",
+      "start": 50.32,
+      "end": 51.53,
+      "title": "Encore",
+      "kind": "story"
+    },
+    {
+      "id": "sunrise",
+      "start": 51.53,
+      "end": 56.85,
+      "title": "Sunrise",
+      "kind": "story"
+    }
+  ],
+  "media": {
+    "film": [
+      "afterparty.webm",
+      "afterparty.mp4"
+    ],
+    "captions": "afterparty.vtt",
+    "clips": {
+      "1": [
+        "habit-1.webm",
+        "habit-1.mp4"
+      ],
+      "2": [
+        "habit-2.webm",
+        "habit-2.mp4"
+      ],
+      "3": [
+        "habit-3.webm",
+        "habit-3.mp4"
+      ],
+      "4": [
+        "habit-4.webm",
+        "habit-4.mp4"
+      ]
+    }
+  }
+}

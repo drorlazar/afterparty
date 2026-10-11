@@ -1,0 +1,85 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: tests (${{ matrix.python }})
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [system, "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        if: matrix.python != 'system'
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Pick the interpreter (system = Apple's Python from the Command Line Tools, the oldest we support)
+        run: |
+          if [ "${{ matrix.python }}" = system ]; then echo "PY=/usr/bin/python3" >> "$GITHUB_ENV"
+          else echo "PY=$(command -v python)" >> "$GITHUB_ENV"; fi
+      - name: Assert the interpreter version
+        run: |
+          v=$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+          echo "Python $v"
+          if [ "${{ matrix.python }}" = system ]; then test "$v" = 3.9; else test "$v" = "${{ matrix.python }}"; fi
+      - name: Install pytest
+        run: '"$PY" -m pip install --user "pytest>=8,<9"'
+      - name: "Tests (the browser E2E test is skipped here: Playwright isn't installed in CI)"
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: '"$PY" -m pytest -o addopts= -q -p no:cacheprovider'
+      - name: Install and uninstall in a temporary home
+        run: |
+          set -eu
+          h="$RUNNER_TEMP/home"; mkdir -p "$h/Projects" "$h/.claude" "$RUNNER_TEMP/launchd"
+          stub="$RUNNER_TEMP/launchctl"
+          sed -e "s|@LOG@|$RUNNER_TEMP/launchctl.log|" -e "s|@STATE@|$RUNNER_TEMP/launchd|" \
+            .github/scripts/fake-launchctl.sh > "$stub"
+          chmod +x "$stub"
+          export HOME="$h" AFTERPARTY_LAUNCHCTL="$stub" AFTERPARTY_PYTHON_CANDIDATES="$PY"
+          ./install.sh --yes --root "$h/Projects"
+          "$h/.local/bin/afterparty" autopilot status
+          ./uninstall.sh --purge --yes
+          left=$(cd "$h" && find . -mindepth 1 ! -path ./Projects ! -path ./.claude)
+          if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+          test -z "$(git status --porcelain --ignored -- cleanup bin)"
+
+  python-3-9:
+    name: tests (independent Python 3.9)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Provision Python 3.9 (not Apple's) and pytest
+        run: |
+          uv python install 3.9
+          uv venv --python 3.9 "$RUNNER_TEMP/py39"
+          uv pip install --python "$RUNNER_TEMP/py39/bin/python" "pytest>=8,<9"
+          echo "PY=$RUNNER_TEMP/py39/bin/python" >> "$GITHUB_ENV"
+      - name: Assert the interpreter version
+        run: test "$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])')" = 3.9
+      - name: Tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: '"$PY" -m pytest -o addopts= -q -p no:cacheprovider'
+
+  leak-gate:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Media tools
+        run: |
+          brew install exiftool
+          if git ls-files | grep -qiE '\.(mp4|mov|m4v|webm|mp3|wav|m4a|aac|ogg|opus)$'; then brew install ffmpeg; fi
+      - name: Leak gate over the tree and the whole history (pushes; public rules; the private deny list runs before every export)
+        if: github.event_name == 'push'
+        run: /usr/bin/python3 .github/scripts/leak_gate.py . --check-commits
+      - name: Leak gate over the tree (pull requests; GitHub's merge commit and contributors' identities aren't checked, the push after merging re-checks the history)
+        if: github.event_name != 'push'
+        run: /usr/bin/python3 .github/scripts/leak_gate.py .

@@ -1,0 +1,53 @@
+Afterparty
+Copyright (c) 2026 Dror Lazar. Licensed under the MIT License (see LICENSE).
+
+## Fonts (bundled in web/fonts/ for the app)
+
+- Inter: Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter).
+  SIL Open Font License 1.1; full text in web/fonts/OFL-Inter.txt.
+- JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono).
+  SIL Open Font License 1.1; full text in web/fonts/OFL-JetBrainsMono.txt.
+
+## Mole
+
+The disk map can show suggestions from Mole (https://github.com/tw93/mole) when it is installed. Mole is not
+bundled or modified. Afterparty runs it only with --dry-run and re-checks every suggestion with its own rules.
+
+## Icons
+
+The app icon (app/AppIcon.icns) and the web icons (web/icons/) are original artwork made for this project and
+are covered by the MIT License above.
+
+## Film and page media
+
+Everything under site/ (the landing page, the Afterparty film, its captions, posters, icons and fonts) is part of this
+project. Unless a line below says otherwise it is licensed under the MIT License above.
+
+- Film picture. The animated film is rendered from original code (Remotion, React, SVG and three.js) by Dror Lazar. The
+  characters ("Bloops"), props, interface scenes and end card are original artwork. The painted backgrounds and props
+  (desk, office wall, circuit board, keyboard, calendar and similar) were generated with OpenAI GPT Image 2.5 from text
+  directions by Dror Lazar and split into layers; use of those images is subject to OpenAI's terms for generated output.
+  The app screens in the film are recordings of this project's own interface on a sample folder.
+- Film voice. The narration is synthetic speech generated with ElevenLabs (Eleven v3, the library voice "Jessica") from
+  Dror Lazar's own script. It is subject to the ElevenLabs terms in force when it was generated.
+- Film music. The score is instrumental music generated with ElevenLabs Music (v2.5, through fal.ai) from text style
+  descriptions. It contains no vocals and no sampled or stock music.
+- Film sound effects. Short sound effects come from recordings placed in the public domain (CC0 1.0): Freesound
+  contributors (https://freesound.org) and Kenney (https://kenney.nl).
+- Captions (afterparty.vtt) and chapter data are original text under the MIT License.
+- Posters, social image and icons. Stills are frames of the film. The app icon, favicons and touch icons are original
+  artwork made for this project (see Icons above).
+- Names. "Claude Code", "Codex", "macOS", "Mac", "Mole" and other product names that appear in the film or on the page
+  belong to their owners and are used only to describe what Afterparty works with. The film shows no logos of
+  other companies. The landing page links to the GitHub repository with the GitHub mark (a trademark of GitHub, Inc.,
+  used as GitHub's logo guidelines allow, to point to this project's page); it is not covered by the MIT License.
+  Afterparty is not affiliated with or endorsed by them.
+
+### Fonts (site/assets/fonts/)
+
+- Sora: Copyright 2019 The Sora Project Authors (https://github.com/sora-xor/sora-font), Latin subset of the variable font
+  as packaged by @fontsource-variable/sora 5.3.0. SIL Open Font License 1.1; full text in site/assets/fonts/OFL-Sora.txt.
+- Inter: Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter). SIL OFL 1.1;
+  site/assets/fonts/OFL-Inter.txt.
+- JetBrains Mono: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono). SIL OFL 1.1;
+  site/assets/fonts/OFL-JetBrainsMono.txt.

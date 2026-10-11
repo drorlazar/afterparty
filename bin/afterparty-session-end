@@ -1,0 +1,18 @@
+#!/bin/sh
+# afterparty-session-end: Claude Code SessionEnd hook. Notes big throwaway folders a session left behind.
+# It never fails or slows the session: with no Python set up it does nothing. Never depends on PATH.
+if [ -n "${PATH:-}" ]; then caller_path=$PATH; else caller_path=/usr/bin:/bin; fi
+PATH=/usr/bin:/bin
+unset CDPATH  # with CDPATH set, `cd relative/dir` prints the folder into our command substitutions
+self=$0
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in /*) self=$link ;; *) self=$(dirname "$self")/$link ;; esac
+done
+repo=$(cd "$(dirname "$self")/.." && pwd -P)
+cfg=${AFTERPARTY_CONFIG_DIR:-$HOME/.config/afterparty}
+py=""
+[ -r "$cfg/python" ] && py=$(head -n 1 "$cfg/python")
+if [ -z "$py" ] || [ ! -x "$py" ]; then exit 0; fi
+entry='import sys; sys.path.insert(0, sys.argv.pop(1)); from cleanup.cli import run; sys.exit(run())'
+PATH=$caller_path PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -I -B -c "$entry" "$repo" session-end

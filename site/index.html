@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Afterparty</title>
+  <meta name="description" content="Free, open-source disk cleanup for Claude Code and Codex on macOS. Nothing goes without a rule or your OK.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#101C2D" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F2F0ED" media="(prefers-color-scheme: light)">
+  <link rel="canonical" href="https://drorlazar.github.io/afterparty/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Afterparty">
+  <meta property="og:description" content="Free, open-source disk cleanup for Claude Code and Codex on macOS. Nothing goes without a rule or your OK.">
+  <meta property="og:url" content="https://drorlazar.github.io/afterparty/">
+  <meta property="og:image" content="https://drorlazar.github.io/afterparty/assets/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A crowd of orange and blue Bloop agents partying in a circuit-board office, with a city glowing through the portholes and the disk gauge at 43% full.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Afterparty">
+  <meta name="twitter:description" content="Free, open-source disk cleanup for Claude Code and Codex on macOS. Nothing goes without a rule or your OK.">
+  <meta name="twitter:image" content="https://drorlazar.github.io/afterparty/assets/og.jpg">
+
+  <link rel="icon" href="assets/favicon.ico" sizes="48x48">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/Sora-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/Inter-var.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" as="image" type="image/webp" imagesrcset="assets/film/poster-800.webp 800w, assets/film/poster.webp 1600w" imagesizes="(max-width: 720px) 100vw, (max-width: 1260px) calc(100vw - 80px), 1180px" fetchpriority="high">
+
+  <!-- Apply the saved theme before first paint (no flash). -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('afterparty-theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="css/site.css">
+  <script src="js/site.js" defer></script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="ap-mark" viewBox="0 0 64 64"><defs><linearGradient id="apm-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2623"/><stop offset="1" stop-color="#151211"/></linearGradient><linearGradient id="apm-amber" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#d97706"/></linearGradient><linearGradient id="apm-stone" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#78716c"/><stop offset="1" stop-color="#57534e"/></linearGradient></defs><path d="M32 2c21 0 30 9 30 30s-9 30-30 30S2 53 2 32 11 2 32 2z" fill="url(#apm-bg)"/><path d="M32 2.75c20.4 0 29.25 8.85 29.25 29.25S52.4 61.25 32 61.25 2.75 52.4 2.75 32 11.6 2.75 32 2.75z" fill="none" stroke="#fafaf9" stroke-opacity=".08" stroke-width="1.5"/><rect x="13" y="14" width="22" height="36" rx="4.5" fill="url(#apm-amber)"/><rect x="38" y="14" width="13" height="19" rx="3.5" fill="url(#apm-stone)"/><rect x="38" y="36" width="13" height="14" rx="3.5" fill="#44403c"/><rect x="13" y="14" width="22" height="36" rx="4.5" fill="none" stroke="#fff" stroke-opacity=".18"/></symbol></svg>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar" id="top">
+    <div class="wrap topbar__inner">
+      <a class="wordmark" href="#top" aria-label="Afterparty, back to top">
+        <svg class="wordmark__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#ap-mark"/></svg>
+        <span>Afterparty</span>
+      </a>
+
+      <nav class="nav" aria-label="Main">
+        <a href="#habits">How it works</a>
+        <a href="#install">Install</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+
+      <div class="topbar__end">
+        <div class="theme" role="group" aria-label="Colour theme">
+          <button type="button" class="theme__btn" data-theme-choice="system" aria-pressed="true" title="Match system">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+            <span class="sr">Match system</span>
+          </button>
+          <button type="button" class="theme__btn" data-theme-choice="light" aria-pressed="false" title="Light">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+            <span class="sr">Light</span>
+          </button>
+          <button type="button" class="theme__btn" data-theme-choice="dark" aria-pressed="false" title="Dark">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>
+            <span class="sr">Dark</span>
+          </button>
+        </div>
+        <a class="gh" href="https://github.com/drorlazar/afterparty" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero__inner">
+        <h1 id="hero-title" class="hero__title">
+          <span class="hero__line">Your agents throw the party.</span>
+          <span class="hero__line">Afterparty <span class="sweep">cleans up.<svg class="sweep__line" viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true"><path d="M4 16 C 70 6, 150 22, 296 8"/></svg></span></span>
+        </h1>
+        <p class="hero__sub">Free, open-source disk cleanup for Claude Code and Codex on macOS. Nothing goes without a rule or your OK.</p>
+        <div class="hero__actions" id="hero-actions">
+          <button type="button" class="btn btn--primary" data-copy-prompt>
+            <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            <svg class="btn__icon btn__icon--done" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            <span class="btn__label" data-label="Copy install prompt">Copy install prompt</span>
+          </button>
+          <a class="btn btn--ghost" href="#habits">
+            <span>How it works</span>
+            <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+          </a>
+        </div>
+        <p class="hero__note">Paste it into Claude Code. Installing never deletes your files.</p>
+      </div>
+
+      <!-- Film -->
+      <div class="wrap film-wrap">
+        <figure class="film" id="film" aria-label="Afterparty film">
+          <div class="film__stage">
+            <picture><source srcset="assets/film/poster-800.webp 800w, assets/film/poster.webp 1600w" sizes="(max-width: 720px) 100vw, (max-width: 1260px) calc(100vw - 80px), 1180px" type="image/webp"><img class="film__poster" src="assets/film/poster.jpg" alt="A crowd of orange and blue Bloop agents partying in a circuit-board office, with a city glowing through the portholes and the disk gauge at 43% full." width="1600" height="900" fetchpriority="high"></picture>
+            <video class="film__video" id="film-video" playsinline muted preload="metadata" aria-describedby="film-desc">
+              <source src="assets/film/afterparty.mp4" type="video/mp4" media="(max-width: 720px)">
+              <source src="assets/film/afterparty.webm" type="video/webm">
+              <source src="assets/film/afterparty.mp4" type="video/mp4">
+              <track kind="captions" src="assets/film/afterparty.vtt" srclang="en" label="English" default>
+            </video>
+            <button type="button" class="film__bigplay" data-film-toggle aria-label="Play film">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+            </button>
+          </div>
+          <div class="film__controls">
+            <button type="button" class="ctl" data-film-toggle aria-label="Play film">
+              <svg class="ctl__play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+              <svg class="ctl__pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM13 5h3v14h-3z"/></svg>
+            </button>
+            <div class="scrub">
+              <div class="scrub__track" aria-hidden="true">
+                <div class="scrub__fill"></div>
+                <div class="scrub__ticks"></div>
+              </div>
+              <input class="scrub__input" type="range" min="0" max="56.85" step="0.1" value="0" aria-label="Film position" aria-valuetext="0:00 of 0:57">
+            </div>
+            <span class="ctl__time" aria-hidden="true"><span data-time-now>0:00</span> / <span data-time-total>0:57</span></span>
+            <button type="button" class="ctl" data-captions aria-pressed="true" aria-label="Captions">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17 10.2a2.2 2.2 0 1 0 0 3.6"/></svg>
+            </button>
+            <button type="button" class="ctl" data-sound aria-pressed="false" aria-label="Sound off. Turn sound on">
+              <svg class="ctl__muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>
+              <svg class="ctl__sound" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9a4.5 4.5 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+            </button>
+          </div>
+          <figcaption id="film-desc" class="sr">A 57 second film: your agents, little orange and blue Bloops, throw a party on your Mac, make a mess, then learn four habits that keep the disk tidy. Captions are on by default.</figcaption>
+        </figure>
+
+        <nav class="chapters" aria-label="Film chapters">
+          <ol class="chapters__list" id="chapters"></ol>
+        </nav>
+      </div>
+    </section>
+
+    <!-- Four habits -->
+    <section class="section habits" id="habits" aria-labelledby="habits-title">
+      <div class="wrap">
+        <header class="section__head">
+          <p class="eyebrow">How it works</p>
+          <h2 id="habits-title">Four habits, one tidy disk</h2>
+          <p class="section__lede">Afterparty teaches the party to clean up after itself. Open a part to watch it.</p>
+        </header>
+
+        <div class="parts">
+          <details class="part" name="habit" data-habit="1" open>
+            <summary class="part__summary">
+              <span class="part__num">Part 1</span>
+              <span class="part__title">One bin for every agent</span>
+              <span class="part__chev" aria-hidden="true"></span>
+            </summary>
+            <div class="part__body">
+              <div class="part__clip">
+                <img src="assets/film/habit-1-poster.webp" alt="" width="800" height="450" loading="lazy" decoding="async">
+                <video muted loop playsinline preload="none" poster="assets/film/habit-1-poster.webp" aria-hidden="true">
+                  <source src="assets/film/habit-1.webm" type="video/webm">
+                  <source src="assets/film/habit-1.mp4" type="video/mp4">
+                </video>
+              </div>
+              <div class="part__text">
+                <p class="part__lead">Your agents put their scraps, like render frames, downloads and test output, in one <code>.scratch</code> folder per project, so throwaway files never mix with your work.</p>
+                <div class="tn">
+                  <div class="tn__col tn__col--touch">
+                    <h3>Touches</h3>
+                    <ul>
+                      <li>Run folders inside <code>.scratch</code> that have sat idle for 3 days or more</li>
+                    </ul>
+                  </div>
+                  <div class="tn__col tn__col--never">
+                    <h3>Never touches</h3>
+                    <ul>
+                      <li>Anything outside <code>.scratch</code></li>
+                      <li>A run that is still open, was written to recently or holds git-tracked files</li>
+                    </ul>
+                  </div>
+                </div>
+                <details class="curious">
+                  <summary>Details for the curious</summary>
+                  <ul>
+                    <li>The installer adds a short hygiene rule to <code>~/.claude/CLAUDE.md</code> and <code>~/.codex/AGENTS.md</code>, only if you agree.</li>
+                    <li>Idle run folders are offered at your next clean, for example <code>my-app/.scratch/render-2/</code>. They are cleared automatically only with autopilot on.</li>
+                    <li>The idle threshold is <code>scratch_days</code> in <code>~/.config/afterparty/config.json</code> (default 3).</li>
+                  </ul>
+                </details>
+                <button type="button" class="link-btn" data-seek-chapter="habit-1">Watch this part in the film</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="part" name="habit" data-habit="2">
+            <summary class="part__summary">
+              <span class="part__num">Part 2</span>
+              <span class="part__title">Clean up before you leave</span>
+              <span class="part__chev" aria-hidden="true"></span>
+            </summary>
+            <div class="part__body">
+              <div class="part__clip">
+                <img src="assets/film/habit-2-poster.webp" alt="" width="800" height="450" loading="lazy" decoding="async">
+                <video muted loop playsinline preload="none" poster="assets/film/habit-2-poster.webp" aria-hidden="true">
+                  <source src="assets/film/habit-2.webm" type="video/webm">
+                  <source src="assets/film/habit-2.mp4" type="video/mp4">
+                </video>
+              </div>
+              <div class="part__text">
+                <p class="part__lead">When a task is done, type <code>/tidy</code>. It lists what the task left behind and asks before it removes anything.</p>
+                <div class="tn">
+                  <div class="tn__col tn__col--touch">
+                    <h3>Touches</h3>
+                    <ul>
+                      <li>Scraps, frames, caches and dependency folders in the folder you name, inside your project folders</li>
+                      <li>Only the items you say yes to</li>
+                    </ul>
+                  </div>
+                  <div class="tn__col tn__col--never">
+                    <h3>Never touches</h3>
+                    <ul>
+                      <li>Git-tracked files, final renders and sources</li>
+                      <li>Anything outside that folder</li>
+                    </ul>
+                  </div>
+                </div>
+                <details class="curious">
+                  <summary>Details for the curious</summary>
+                  <ul>
+                    <li>Under the hood it runs <code>afterparty tidy video-project/</code>. Keep or drop single items with <code>--only</code> or <code>--skip</code> and the ids from the report.</li>
+                    <li>Render frames go to the Trash, including the latest version. <code>afterparty undo</code> puts them back.</li>
+                    <li>Example from a render job: <code>/tidy? 4.8 GB</code>.</li>
+                  </ul>
+                </details>
+                <button type="button" class="link-btn" data-seek-chapter="habit-2">Watch this part in the film</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="part" name="habit" data-habit="3">
+            <summary class="part__summary">
+              <span class="part__num">Part 3</span>
+              <span class="part__title">The Sunday sweep</span>
+              <span class="part__chev" aria-hidden="true"></span>
+            </summary>
+            <div class="part__body">
+              <div class="part__clip">
+                <img src="assets/film/habit-3-poster.webp" alt="" width="800" height="450" loading="lazy" decoding="async">
+                <video muted loop playsinline preload="none" poster="assets/film/habit-3-poster.webp" aria-hidden="true">
+                  <source src="assets/film/habit-3.webm" type="video/webm">
+                  <source src="assets/film/habit-3.mp4" type="video/mp4">
+                </video>
+              </div>
+              <div class="part__text">
+                <p class="part__lead">Once a week, Afterparty checks your project folders and sends one notification with what it found. It cleans only when you say yes.</p>
+                <div class="tn">
+                  <div class="tn__col tn__col--touch">
+                    <h3>Touches</h3>
+                    <ul>
+                      <li>Nothing by default: it reports and notifies</li>
+                      <li>With autopilot on: caches, dependency folders, scraps and old render versions</li>
+                    </ul>
+                  </div>
+                  <div class="tn__col tn__col--never">
+                    <h3>Never touches</h3>
+                    <ul>
+                      <li>Worktrees and personal files, even with autopilot on</li>
+                      <li>Your protected folders</li>
+                    </ul>
+                  </div>
+                </div>
+                <details class="curious">
+                  <summary>Details for the curious</summary>
+                  <ul>
+                    <li>A weekly job runs <code>afterparty report --notify</code>, for example "Found 12 GB. Run /afterparty to clean."</li>
+                    <li>A daily check warns when free space drops below <code>low_space_gb</code> (default 50).</li>
+                    <li><code>afterparty autopilot on</code> asks you to confirm, then lets the weekly job clean. Old render versions go to the Trash with undo. <code>afterparty autopilot off</code> goes back to reports.</li>
+                  </ul>
+                </details>
+                <button type="button" class="link-btn" data-seek-chapter="habit-3">Watch this part in the film</button>
+              </div>
+            </div>
+          </details>
+
+          <details class="part" name="habit" data-habit="4">
+            <summary class="part__summary">
+              <span class="part__num">Part 4</span>
+              <span class="part__title">The map of everything</span>
+              <span class="part__chev" aria-hidden="true"></span>
+            </summary>
+            <div class="part__body">
+              <div class="part__clip">
+                <img src="assets/film/habit-4-poster.webp" alt="" width="800" height="450" loading="lazy" decoding="async">
+                <video muted loop playsinline preload="none" poster="assets/film/habit-4-poster.webp" aria-hidden="true">
+                  <source src="assets/film/habit-4.webm" type="video/webm">
+                  <source src="assets/film/habit-4.mp4" type="video/mp4">
+                </video>
+              </div>
+              <div class="part__text">
+                <p class="part__lead">Open the map to see every folder on your disk as blocks sized by the space they use, with a plain reason for what each one is.</p>
+                <div class="tn">
+                  <div class="tn__col tn__col--touch">
+                    <h3>Touches</h3>
+                    <ul>
+                      <li>Only items you pick, after you review and confirm the list</li>
+                      <li>Anything you override goes to the Trash, never straight to deletion</li>
+                    </ul>
+                  </div>
+                  <div class="tn__col tn__col--never">
+                    <h3>Never touches</h3>
+                    <ul>
+                      <li>System areas, app internals and symlinks</li>
+                      <li>Anything on your keep list, or marked protected, even if you override</li>
+                    </ul>
+                  </div>
+                </div>
+                <details class="curious">
+                  <summary>Details for the curious</summary>
+                  <ul>
+                    <li>Open it with <code>afterparty map</code>. The scan runs entirely on your Mac.</li>
+                    <li>Items outside your project folders can only go to the Trash.</li>
+                    <li>Sizes are the space a folder really uses: hard links and APFS clones are counted once, so it can show ranges like "frees at least 2 GB (up to 3 GB)".</li>
+                    <li>Without Full Disk Access, protected folders are skipped and reported, never guessed at.</li>
+                  </ul>
+                </details>
+                <button type="button" class="link-btn" data-seek-chapter="habit-4">Watch this part in the film</button>
+              </div>
+            </div>
+          </details>
+        </div>
+        <p class="footnote">Sizes and paths on this page are examples.</p>
+      </div>
+    </section>
+
+    <!-- Safe by design -->
+    <section class="section safe" id="safe" aria-labelledby="safe-title">
+      <div class="wrap">
+        <header class="section__head">
+          <p class="eyebrow">Safe by design</p>
+          <h2 id="safe-title">Nothing goes without a rule or your OK</h2>
+        </header>
+        <div class="cards">
+          <article class="card">
+            <svg class="card__art" viewBox="0 0 320 140" aria-hidden="true" focusable="false">
+              <rect class="v-floor" x="0" y="118" width="320" height="22" rx="6"/>
+              <path class="v-glass" d="M118 118 v-58 a42 42 0 0 1 84 0 v58 z"/>
+              <path class="v-glass-line" d="M118 118 v-58 a42 42 0 0 1 84 0 v58"/>
+              <rect class="v-base" x="108" y="112" width="104" height="10" rx="5"/>
+              <rect class="v-file" x="136" y="72" width="48" height="40" rx="6"/>
+              <path class="v-file-ink" d="M154 84 l14 8 l-14 8 z"/>
+              <text class="v-label" x="160" y="134" text-anchor="middle">final_cut.mp4</text>
+              <g class="v-bonk"><path d="M204 70 l7 6"/><path d="M210 58 l4 9"/><path d="M220 54 l1 10"/></g>
+              <g transform="translate(284 122) scale(0.42)"><ellipse cx="0" cy="2" rx="66" ry="10" fill="#101C2D" opacity="0.42"/><ellipse cx="-26" cy="-6" rx="17" ry="9" fill="#C4612F"/><ellipse cx="26" cy="-6" rx="17" ry="9" fill="#C4612F"/><g transform="translate(58.0 -65.1) rotate(-20.0)"><rect x="-11" y="-4" width="22" height="40" rx="11" fill="#C4612F"/><circle cx="0" cy="36" r="13" fill="#F28C4E"/></g><path d="M0,-138 Q2.2,-158 11.2,-171.2" stroke="#C4612F" stroke-width="6" fill="none" stroke-linecap="round"/><g transform="translate(11.2 -171.2) rotate(14.4)"><rect x="-9" y="-24" width="18" height="24" rx="4" fill="#FFC79A"/><rect x="-9" y="-24" width="18" height="24" rx="4" fill="none" stroke="#C4612F" stroke-width="3"/></g><clipPath id="b12"><path d="M-62,-8 C-70,-73.3 -46.6,-144 0,-144 C46.6,-144 70,-73.3 62,-8 Q0,4 -62,-8 Z"/></clipPath><path d="M-62,-8 C-70,-73.3 -46.6,-144 0,-144 C46.6,-144 70,-73.3 62,-8 Q0,4 -62,-8 Z" fill="#F28C4E"/><g clip-path="url(#b12)"><ellipse cx="0" cy="0" rx="83" ry="30" fill="#C4612F" opacity="0.6"/><ellipse cx="44" cy="-69.2" rx="30" ry="95.2" fill="#C4612F" opacity="0.22"/></g><path d="M-39.1,-103.2 C-31.5,-127.7 -15.8,-138.6 -2.5,-138.6" stroke="#F9BC90" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.85"/><rect x="-48.0" y="-116.8" width="96" height="50" rx="25.0" fill="#0E1A2A"/><rect x="-38.0" y="-110.8" width="28.8" height="5" rx="2.5" fill="#fff" opacity="0.09"/><rect x="-35.6" y="-96.8" width="20" height="8" rx="4" fill="#FFC79A" transform="rotate(9 -25.6 -93.8)"/><rect x="8.399999999999999" y="-96.8" width="20" height="8" rx="4" fill="#FFC79A" transform="rotate(-9 18.4 -93.8)"/><path d="M-9.6,-78.8 Q-1.5999999999999996,-75.8 5.4,-81.8" stroke="#FFC79A" stroke-width="3.5" fill="none" stroke-linecap="round"/><g transform="translate(-58.0 -65.1) rotate(75.0)"><rect x="-11" y="-4" width="22" height="40" rx="11" fill="#C4612F"/><circle cx="0" cy="36" r="13" fill="#F28C4E"/></g><g transform="translate(-92.8 -55.8)"><g transform="scale(0.7)"><g transform="rotate(84)"><rect x="-4" y="-10" width="8" height="150" rx="4" fill="#B3C8D0"/><path d="M-26 140 h52 l8 46 h-68 z" fill="#69D7B5"/><rect x="-28" y="134" width="56" height="12" rx="4" fill="#329986"/></g></g></g></g>
+            </svg>
+            <h3>Your work is never offered</h3>
+            <p>Git-tracked files, final renders and sources, your protected folders.</p>
+          </article>
+          <article class="card">
+            <svg class="card__art" viewBox="0 0 320 140" aria-hidden="true" focusable="false">
+              <rect class="v-panel" x="40" y="22" width="240" height="96" rx="16"/>
+              <circle class="v-mint" cx="74" cy="56" r="14"/>
+              <path class="v-check" d="M67 56 l5 5 l10 -11"/>
+              <text class="v-title" x="98" y="54">Found 12 GB.</text>
+              <text class="v-sub" x="98" y="74">Clean it?</text>
+              <rect class="v-btn" x="132" y="86" width="64" height="22" rx="11"/>
+              <text class="v-btn-text" x="164" y="101" text-anchor="middle">Not now</text>
+              <rect class="v-mint" x="204" y="86" width="60" height="22" rx="11"/>
+              <text class="v-btn-text v-btn-text--on" x="234" y="101" text-anchor="middle">Yes</text>
+            </svg>
+            <h3>Asks first</h3>
+            <p>Reports by default; nothing is cleaned until you say yes or turn autopilot on.</p>
+          </article>
+          <article class="card">
+            <svg class="card__art" viewBox="0 0 320 140" aria-hidden="true" focusable="false">
+              <rect class="v-floor" x="0" y="118" width="320" height="22" rx="6"/>
+              <path class="v-can" d="M128 58 h64 l-7 60 h-50 z"/>
+              <rect class="v-can-lid" x="120" y="50" width="80" height="10" rx="5"/>
+              <path class="v-can-rib" d="M148 72 v34 M160 72 v34 M172 72 v34"/>
+              <g transform="translate(138 18) rotate(-14)"><rect class="v-mess" width="30" height="22" rx="3"/><rect class="v-mess-shade" x="3" y="3" width="24" height="13" rx="2"/></g>
+              <g transform="translate(152 8) rotate(10)"><rect class="v-mess" width="30" height="22" rx="3"/><rect class="v-mess-shade" x="3" y="3" width="24" height="13" rx="2"/></g>
+              <path class="v-undo" d="M284 102 v-8 a26 26 0 0 0 -26 -26 h-40"/>
+              <path class="v-undo" d="M232 54 l-14 14 l14 14"/>
+              <text class="v-label v-label--mint" x="252" y="134" text-anchor="middle">Undo</text>
+            </svg>
+            <h3>Undo for the rest</h3>
+            <p>Caches, dependency folders and your agents' <code>.scratch</code> scraps are cleared for good; big downloads (models, package stores) are offered one by one and download again; idle worktrees go only when every commit is on your remote; everything else goes to the Trash with undo.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Install -->
+    <section class="section install" id="install" aria-labelledby="install-title">
+      <div class="wrap install__grid">
+        <div class="install__main">
+          <p class="eyebrow">Install</p>
+          <h2 id="install-title">Paste one line into Claude Code</h2>
+          <div class="term">
+          <div class="term__bar" aria-hidden="true"><i></i><i></i><i></i><span>Claude Code</span></div>
+          <div class="prompt">
+            <p class="prompt__text" id="install-prompt">Install Afterparty from https://github.com/<wbr>drorlazar/afterparty — read INSTALL.md and follow it.</p>
+            <button type="button" class="btn btn--primary prompt__copy" data-copy-prompt>
+              <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              <svg class="btn__icon btn__icon--done" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              <span class="btn__label" data-label="Copy">Copy</span>
+            </button>
+          </div>
+          </div>
+          <p class="install__meta"><strong>Requires</strong> macOS 13 or later, git and Claude Code or Codex. The optional map app also needs Swift from the Xcode Command Line Tools.</p>
+          <p class="install__meta"><strong>Uninstall</strong> any time with <code>afterparty uninstall</code>. It removes only what the installer created; add <code>--purge</code> to remove your settings and logs too.</p>
+        </div>
+
+        <aside class="steps" aria-labelledby="steps-title">
+          <h3 id="steps-title">What Claude will do</h3>
+          <ol>
+            <li>Check your Mac: macOS 13 or later, git and a working Python 3.9 or newer.</li>
+            <li>Download Afterparty to <code>~/.afterparty</code>.</li>
+            <li>Show you every file, link, job and text block it would create, before creating any.</li>
+            <li>Ask which project folders to watch, which to protect, whether to add the <code>.scratch</code> rule, and whether to turn on the optional agent (default no).</li>
+            <li>Install with your answers.</li>
+            <li>Offer to build the map app, if Swift is available.</li>
+            <li>Explain Full Disk Access and open that settings pane for you.</li>
+            <li>Run a first report and sum it up in plain words.</li>
+          </ol>
+          <p class="steps__foot">It never runs a command that deletes your files.</p>
+        </aside>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section faq" id="faq" aria-labelledby="faq-title">
+      <div class="wrap wrap--narrow">
+        <header class="section__head">
+          <p class="eyebrow">FAQ</p>
+          <h2 id="faq-title">Questions, answered</h2>
+        </header>
+        <div class="faq__list">
+          <details class="qa">
+            <summary>Does anything leave my Mac?</summary>
+            <p>Scanning and cleaning are entirely local. The optional "Ask Claude about this folder" feature is off by default; when you use it, it sends that folder's paths, file names and sizes (never file contents unless you allow the agent to read files) to Claude through your own Claude Code account, and shows you exactly what will be sent first.</p>
+          </details>
+          <details class="qa">
+            <summary>What gets deleted for good?</summary>
+            <p>Caches and dependency folders that rebuild themselves, and <code>.scratch</code> runs your agents marked as throwaway. Idle worktrees are removed only when every commit is on your remote. Downloaded models and full package caches are offered one by one, and re-download when needed.</p>
+          </details>
+          <details class="qa">
+            <summary>Why Full Disk Access?</summary>
+            <p>Without it, protected folders are skipped and reported, never guessed at.</p>
+          </details>
+          <details class="qa">
+            <summary>Does it work with Codex?</summary>
+            <p>Yes, skills and the hygiene rule install for Codex too.</p>
+          </details>
+          <details class="qa">
+            <summary>Can I undo a cleanup?</summary>
+            <p>Yes, for everything that went to the Trash: run <code>afterparty undo</code>, or name a run to undo just that one. It works for cleanups from the command line and from the map app. Things removed for good rebuild or download again instead.</p>
+          </details>
+          <details class="qa">
+            <summary>How do I uninstall?</summary>
+            <p><code>afterparty uninstall</code>.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <a class="wordmark wordmark--small" href="#top" aria-label="Afterparty, back to top">
+        <svg class="wordmark__mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><use href="#ap-mark"/></svg>
+        <span>Afterparty</span>
+      </a>
+      <ul class="footer__links">
+        <li><a href="https://github.com/drorlazar/afterparty/blob/main/LICENSE">MIT licence</a></li>
+        <li><a href="https://github.com/drorlazar/afterparty">GitHub</a></li>
+      </ul>
+      <p class="footer__note">Not affiliated with Anthropic or OpenAI.</p>
+    </div>
+  </footer>
+
+  <!-- Mobile: sticky install bar -->
+  <div class="mbar" id="mbar">
+    <button type="button" class="btn btn--primary btn--block" data-copy-prompt>
+      <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+      <svg class="btn__icon btn__icon--done" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      <span class="btn__label" data-label="Copy install prompt">Copy install prompt</span>
+    </button>
+  </div>
+
+  <p class="sr" aria-live="polite" id="live"></p>
+</body>
+</html>

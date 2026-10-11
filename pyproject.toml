@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "afterparty"
+version = "0.1.0"
+requires-python = ">=3.9"
+description = "Clean up after your coding agents: a safety-first disk cleaner and disk map for macOS"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["cleanup*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

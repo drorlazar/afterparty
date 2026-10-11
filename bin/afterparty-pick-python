@@ -1,0 +1,28 @@
+#!/bin/sh
+# Prints the first Python 3.9+ that actually runs on this Mac; exits 69 with the fix when there is none.
+# /usr/bin/python3 counts only when the Command Line Tools are installed: without them, running it opens an
+# install dialog instead of Python. Never depends on the caller's PATH.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+unset CDPATH  # with CDPATH set, `cd relative/dir` prints the folder into our command substitutions
+xcode_select=${AFTERPARTY_XCODE_SELECT:-/usr/bin/xcode-select}   # test seam
+works() {
+  case $1 in /*) ;; *) return 1 ;; esac
+  [ -x "$1" ] || return 1
+  if [ "$1" = /usr/bin/python3 ] && ! "$xcode_select" -p >/dev/null 2>&1; then return 1; fi
+  "$1" -I -B -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3, 9) else 1)' </dev/null >/dev/null 2>&1
+}
+if [ $# -gt 0 ]; then
+  if works "$1"; then printf '%s\n' "$1"; exit 0; fi
+  echo "afterparty: $1 isn't a working Python 3.9 or newer (give its full path)." >&2
+  exit 69
+fi
+# Apple's (needs the Command Line Tools), Apple-silicon Homebrew, Intel Homebrew, python.org.
+candidates=${AFTERPARTY_PYTHON_CANDIDATES:-/usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/Current/bin/python3}
+for c in $candidates; do
+  if works "$c"; then printf '%s\n' "$c"; exit 0; fi
+done
+cat >&2 <<'MSG'
+Afterparty needs Python 3.9 or newer, and this Mac has none that runs.
+Run `xcode-select --install`, wait for it to finish, then paste the install prompt again.
+MSG
+exit 69

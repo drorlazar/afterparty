@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<script>(function(){try{var m=localStorage.getItem('prism-theme')||'system';var d=m==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):m;document.documentElement.setAttribute('data-theme',d);var ts=localStorage.getItem('prism-textscale');if(ts)document.documentElement.style.setProperty('--ts',ts);}catch(e){document.documentElement.setAttribute('data-theme','dark')}})();</script>
+<meta name="csrf" content="{{CSRF}}">
+<script>if (location.search.includes("key=")) history.replaceState(null, "", "/");  // keep the key out of history</script>
+<title>Afterparty</title>
+<link rel="icon" href="/static/icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/css/fonts.css">
+<link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+<div class="loading" id="loading">Loading Afterparty…</div>
+<div class="app">
+  <header class="bar">
+    <button class="brand" id="brand" title="Settings (,)"><img src="/static/icons/favicon.svg" width="20" height="20" alt="" style="border-radius:5px">Afterparty<span class="cv">▾</span></button>
+    <div class="nav">
+      <button class="nb" id="bBack" title="Back (⌘[)">←</button>
+      <button class="nb" id="bFwd" title="Forward (⌘])">→</button>
+      <button class="nb" id="bUp" title="Up one level (⌫)">↑</button>
+      <button class="nb" id="bHome" title="Home — whole disk (H)">⌂</button>
+    </div>
+    <nav class="crumbs" id="crumbs"></nav>
+    <span class="scanmeta" id="scanMeta"></span>
+    <button class="nb" id="bRescan" title="Rescan disk (R)" style="border:1px solid var(--border);background:var(--surface)">↻</button>
+    <button class="nb" id="bMole" title="Mole suggestions (dry run)" style="border:1px solid var(--border);background:var(--surface);width:auto;padding:0 10px">Mole</button>
+    <div class="seg"><span class="lbl">Depth</span><button data-d="1">1</button><button data-d="2" class="on">2</button><button data-d="3">3</button><button data-d="0">Auto</button></div>
+    <div class="seg" id="modes"><button data-m="safety" class="on">Safety</button><button data-m="type">Type</button><button data-m="age">Age</button><button data-m="size">Plain</button></div>
+    <div class="seg" id="presets"><button data-p="explore" class="on">Explore</button><button data-p="files">Files</button><button data-p="focus">Focus</button></div>
+  </header>
+  <div class="banner" id="fdaBanner" hidden></div>
+  <div class="scanbar" id="scanbar" hidden><i></i></div>
+
+  <section class="cap" id="cap">
+    <div class="capn" id="capn"></div>
+    <div class="capd"><div class="capbar" id="capbar"></div></div>
+    <div class="chipd capd" id="hidden"></div>
+    <button class="mini-btn" id="capToggle" title="Collapse">▴</button>
+  </section>
+
+  <main class="ws" id="ws">
+    <section class="pane" id="pLeft">
+      <div class="rail" data-open="pLeft">Tree <span class="k">1</span></div>
+      <div class="ph">Tree<span class="sp"></span><span class="k">1</span><button class="pbtn" data-collapse="pLeft" title="Collapse (1)">⇤</button></div>
+      <div class="pb" id="tree"></div>
+    </section>
+    <div class="split" id="sL"></div>
+    <section class="pane center" id="pCenter">
+      <div class="ph"><span id="mapTitle">Map</span><span class="sp"></span><div class="legend" id="legend"></div><button class="pbtn" id="mapMax" title="Map only / map + files">⤢</button></div>
+      <div class="mapwrap" id="mapwrap"><canvas id="map"></canvas><div class="loadingmap" id="loadingmap">Loading…</div></div>
+      <div class="hsplit" id="sH"></div>
+      <div class="ph" style="border-top:1px solid var(--hairline)"><span id="filesTitle">Contents</span><span class="sp"></span><span style="text-transform:none;letter-spacing:0;font-weight:500" id="filesCount"></span><button class="pbtn" id="filesToggle" title="Collapse contents">▾</button></div>
+      <div class="pb" id="filesBody"><table class="tbl" id="files"><thead><tr>
+        <th data-s="n">Name</th><th data-s="s" class="r">On disk</th><th class="r">% of folder</th><th data-s="k">Kind</th><th data-s="m" class="r">Modified</th><th>Safety</th><th>Plan</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <div class="split" id="sR"></div>
+    <section class="pane" id="pRight">
+      <div class="rail" data-open="pRight">Inspector <span class="k">3</span></div>
+      <div class="ph">Inspector<span class="sp"></span><span class="k">3</span><button class="pbtn" data-collapse="pRight" title="Collapse (3)">⇥</button></div>
+      <div class="tabs"><button class="tab on" data-t="details">Details</button><button class="tab" data-t="agent">Agent ✦</button></div>
+      <div class="pb" id="insp"></div>
+    </section>
+  </main>
+
+  <footer class="tray" id="tray">
+    <div class="activity" id="activity" hidden><div class="actbar"><i id="actFill"></i></div><span id="actText"></span><button class="btn" id="actStop" hidden>Stop</button></div>
+    <div class="trayinfo" id="trayInfo" title="Show what's in the tray"><div class="big" id="trayBig">Tray empty</div><div class="sub" id="traySub">Select anything on the map and press <b>A</b> to stage it for review</div></div>
+    <span class="pill perm" id="pillPerm">Permanent 0 B</span><span class="pill trash" id="pillTrash">Trash 0 B</span>
+    <span style="flex:1"></span>
+    <span class="sub mono" id="kbdHint">dbl-click enter · ⌫ up · H home · 1 2 3 panes · Z focus · Space preview</span>
+    <button class="btn cta" id="reviewBtn" disabled>Review…</button>
+  </footer>
+</div>
+
+<div class="ov" id="moleOv"><div class="rv">
+  <div class="rvh"><h3>Mole suggestions</h3><span class="chip" id="moleMeta">dry run only</span><span style="flex:1"></span>
+    <button class="btn" id="moleRefresh">Refresh (dry run)</button><button class="pbtn" id="moleClose" title="Close (Esc)">✕</button></div>
+  <div class="rvb"><div class="mf" id="moleList"></div></div>
+  <div class="rvf"><div class="sub">Mole only suggests. Afterparty never runs Mole's own clean; everything goes through review.</div>
+    <span style="flex:1"></span><span class="sub" id="moleSel"></span><button class="btn cta" id="moleReview" disabled>Review selected →</button></div>
+</div></div>
+<div class="ov" id="pv"><div class="pvbox">
+  <div class="pvh"><b id="pvName"></b><span class="sub" id="pvMeta"></span><span style="flex:1"></span>
+    <button class="btn" id="pvReveal">Reveal in Finder</button><button class="pbtn" id="pvClose" title="Close (Esc)">✕</button></div>
+  <div class="pvb" id="pvBody"></div>
+</div></div>
+<div class="ov" id="ov"><div class="rv">
+  <div class="rvh"><h3>Review cleanup plan</h3><span class="chip">nothing has been deleted yet</span><span style="flex:1"></span>
+    <div class="seg"><button class="on">All</button><button>Delete only</button><button>Keep only</button></div>
+    <button class="pbtn" id="ovClose" title="Close (Esc)">✕</button></div>
+  <div class="rvb"><div class="mf" id="manifest"></div></div>
+  <div class="rvf"><div class="sub" id="rvTotals"></div><span style="flex:1"></span>
+    <label class="ack"><input type="checkbox" id="ack"> I understand permanent deletions can't be undone</label>
+    <button class="btn" id="ovCancel">Back to map</button><button class="btn cta" id="rvGo" disabled>Delete</button></div>
+</div></div>
+<div class="tip" id="tip"></div>
+<div class="pop" id="settings" role="dialog" aria-label="Settings">
+  <div class="sec"><h5>Appearance</h5>
+    <div class="tseg" id="themeSeg">
+      <button data-mode="light" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>Light</button>
+      <button data-mode="dark" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.6 6.6 0 0 0 10.5 10.5z"/></svg>Dark</button>
+      <button data-mode="system" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/></svg>System</button>
+    </div></div>
+  <div class="sec"><h5>Text size <span id="tsVal">100%</span></h5>
+    <input type="range" id="tsRange" min="0.85" max="1.4" step="0.05" aria-label="Text size">
+    <div class="sizes"><span>A</span><b>A</b></div></div>
+  <div class="sec"><h5>Map</h5>
+    <div class="srow">Animate zoom <button class="sw" id="swAnim" role="switch" aria-checked="true"></button></div>
+    <div class="srow">Show protected items <button class="sw" id="swLocked" role="switch" aria-checked="true"></button></div>
+    <div class="srow">Hatch staged items <button class="sw" id="swHatch" role="switch" aria-checked="true"></button></div>
+    <div class="srow">Reset layout <button class="btn" id="resetLayout" style="height:28px">Reset</button></div></div>
+  <div class="sec"><h5>AI agent</h5>
+    <div class="srow" style="align-items:flex-start"><span id="agentStatus" class="sub" style="flex:1">Checking Claude Code…</span>
+      <button class="btn" id="agentRecheck" style="height:26px">Check again</button></div>
+    <div class="srow">Model <select id="agentModel" class="sel"><option value="sonnet">Sonnet (balanced)</option>
+      <option value="opus">Opus (most thorough)</option><option value="haiku">Haiku (fastest)</option></select></div>
+    <div class="srow" style="flex-direction:column;align-items:stretch;gap:4px">Default question (✦ Analyse)
+      <textarea id="agentDefaultQ" class="sel" rows="3" maxlength="500" style="height:auto;padding:6px;font:inherit;font-size:12px;resize:vertical"></textarea></div>
+    <div class="sub" style="font-size:11px">Uses Claude Code on this Mac with your own Claude account. See the Agent tab for setup.</div></div>
+  <div class="sec"><h5>Keyboard</h5><div class="keys">
+    <kbd>Dbl-click / ↵</kbd><span>Open folder</span><kbd>⌫</kbd><span>Up one level</span><kbd>H</kbd><span>Home — whole disk</span>
+    <kbd>⌘[ ⌘]</kbd><span>Back / forward</span><kbd>1 2 3</kbd><span>Tree · contents · inspector</span><kbd>Z</kbd><span>Focus the map</span>
+    <kbd>A</kbd><span>Add / remove from tray</span><kbd>Right-click</kbd><span>Actions menu</span><kbd>,</kbd><span>This panel</span></div></div>
+</div>
+<div class="cm" id="cm" role="menu"></div>
+<div class="toast" id="toast"></div>
+<div class="dd" id="dd" style="display:none"></div>
+
+<div class="ov" id="reconnect"><div class="rv" style="height:auto;grid-template-rows:auto;padding:28px;text-align:center;gap:10px;width:min(420px,92vw)"><h3 style="color:var(--text)">Afterparty server restarted</h3><p>Reload to reconnect.</p><button class="btn cta" onclick="location.reload()">Reload</button></div></div>
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

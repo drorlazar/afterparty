@@ -1,0 +1,21 @@
+#!/bin/sh
+# afterparty — runs the engine with the Python the installer chose. Never depends on PATH.
+# Our own lookups (dirname, readlink, head) never use the caller's PATH; the engine gets the caller's PATH back.
+if [ -n "${PATH:-}" ]; then caller_path=$PATH; else caller_path=/usr/bin:/bin; fi
+PATH=/usr/bin:/bin
+unset CDPATH  # with CDPATH set, `cd relative/dir` prints the folder into our command substitutions
+self=$0
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in /*) self=$link ;; *) self=$(dirname "$self")/$link ;; esac
+done
+repo=$(cd "$(dirname "$self")/.." && pwd -P)
+cfg=${AFTERPARTY_CONFIG_DIR:-$HOME/.config/afterparty}
+py=""
+[ -r "$cfg/python" ] && py=$(head -n 1 "$cfg/python")
+if [ -z "$py" ] || [ ! -x "$py" ]; then
+  echo "afterparty: no Python is set up for Afterparty. Re-run the installer (see INSTALL.md)." >&2
+  exit 69
+fi
+entry='import sys; sys.path.insert(0, sys.argv.pop(1)); from cleanup.cli import run; sys.exit(run())'
+PATH=$caller_path PYTHONPATH="$repo${PYTHONPATH:+:$PYTHONPATH}" AFTERPARTY_LIVE=1 exec "$py" -I -B -c "$entry" "$repo" afterparty "$@"
