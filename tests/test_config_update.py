@@ -294,3 +294,20 @@ def test_any_other_stray_or_malformed_pending_entry_makes_deleting_refuse(cfg, n
     with pytest.raises(config.ConfigError):
         config.load()
     assert executor.last_gate(["/somewhere"], config.current_keep, None) == ("halt", {})
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_a_blank_protection_is_refused_before_it_is_published(cfg, blank):
+    with pytest.raises(config.ConfigError):
+        config.add_keep(blank)
+    pending = config.pending_dir()
+    assert not os.path.isdir(pending) or os.listdir(pending) == []
+    assert "keep" not in json.loads(cfg.read_text())
+
+
+def test_a_blank_pending_protection_counts_as_malformed_not_as_the_current_folder(cfg):
+    os.makedirs(config.pending_dir(), mode=0o700)
+    with open(os.path.join(config.pending_dir(), "x.json"), "w") as f:
+        json.dump({"keep": " "}, f)
+    with pytest.raises(config.ConfigError):
+        config.load()

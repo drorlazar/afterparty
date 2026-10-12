@@ -161,3 +161,23 @@ def test_broken_db_is_503_not_dropped(api):
         raise sqlite3.DatabaseError("database disk image is malformed")
     app.store.latest = boom
     assert call("GET", "/api/status")[0] == 503
+
+
+def test_server_starts_without_a_reverse_dns_lookup(tmp_path, monkeypatch):
+    # http.server's bind looks up 127.0.0.1's host name (socket.getfqdn → gethostbyaddr → mDNS), which can hang
+    # forever (a CI runner did, listening but never accepting); the server must never wait on DNS to start
+    import socket
+
+    def no_dns(*a, **k):
+        raise AssertionError("the server looked up a host name")
+    monkeypatch.setattr(socket, "getfqdn", no_dns)
+    monkeypatch.setattr(socket, "gethostbyaddr", no_dns)
+    server, app = serve(port=0, store=Store(str(tmp_path / "db.sqlite")), roots=(str(tmp_path),), scan_skip=())
+    try:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        req = urllib.request.Request(f"http://127.0.0.1:{server.server_address[1]}/api/status")
+        req.add_header("X-Cleanup-Key", app.token)
+        assert urllib.request.urlopen(req, timeout=10).status == 200
+    finally:
+        server.shutdown()
+        server.server_close()

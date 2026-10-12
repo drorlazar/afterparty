@@ -2,6 +2,7 @@
 import json
 import os
 import secrets
+import socketserver
 import stat
 import shutil
 import sqlite3
@@ -711,6 +712,15 @@ def make_handler(app):
     return Handler
 
 
+class Server(ThreadingHTTPServer):
+    def server_bind(self):
+        # http.server's bind also sets server_name = socket.getfqdn(host): a reverse lookup of 127.0.0.1 (mDNS on
+        # macOS) that can hang forever with the socket already listening but nothing accepting. Nothing here uses
+        # the name, so bind without the lookup.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def serve(host="127.0.0.1", port=0, token=None, store=None, roots=("/",), web_dir=WEB, scan_fn=scan,
           scan_skip=DEFAULT_SKIP, live=False):
     if store is None:
@@ -720,7 +730,7 @@ def serve(host="127.0.0.1", port=0, token=None, store=None, roots=("/",), web_di
     if live:
         from cleanup.cli import live_guard
         app.guard_fn = lambda: live_guard(["--apply"])
-    server = ThreadingHTTPServer((host, port), make_handler(app))
+    server = Server((host, port), make_handler(app))
     server.daemon_threads = True
     app.port = server.server_address[1]
     return server, app

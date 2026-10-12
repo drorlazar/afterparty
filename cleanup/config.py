@@ -136,7 +136,7 @@ def _pending_entries(names):
         except (OSError, ValueError) as e:
             raise ConfigError("the pending protection %s can't be read (%s)" % (p, e))
         if not (n.endswith(".json") and isinstance(entry, dict) and set(entry) == {"keep"}
-                and isinstance(entry["keep"], str)):
+                and isinstance(entry["keep"], str) and entry["keep"].strip()):  # "" would resolve to the cwd
             raise ConfigError("%s isn't a pending protection Afterparty wrote" % p)
         out[n] = entry["keep"]
     return out
@@ -313,6 +313,8 @@ def add_keep(path, cfg_path=None):
     lock, then the pending file is withdrawn. Ruling R13: it is withdrawn only after the merged settings and the
     folder fsync both succeeded; on any failure (or if the process dies) it stays and keeps protecting: a stale
     pending protection only ever protects more, never less. The error is raised (the button reports it)."""
+    if not isinstance(path, str) or not path.strip():
+        raise ConfigError("a blank path can't be protected")  # it would resolve to the current folder, maybe /
     d = pending_dir()
     os.makedirs(d, mode=0o700, exist_ok=True)
     name = uuid.uuid4().hex
