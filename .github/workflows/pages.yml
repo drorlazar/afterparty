@@ -16,16 +16,31 @@ concurrency:
 
 jobs:
   deploy:
-    name: publish site/ to GitHub Pages
+    # The site itself lives on Vercel (its own domain, so its visit counter is separate);
+    # the old Pages address only forwards there, keeping any hash (#install, #film).
+    name: publish the redirect to the Vercel site
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: write the redirect page
+        run: |
+          mkdir -p out
+          cat > out/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en"><head><meta charset="utf-8">
+          <title>Afterparty has moved</title>
+          <link rel="canonical" href="https://afterparty-mac.vercel.app/">
+          <meta name="robots" content="noindex">
+          <meta http-equiv="refresh" content="0; url=https://afterparty-mac.vercel.app/">
+          <script>location.replace("https://afterparty-mac.vercel.app/" + location.hash);</script>
+          </head><body><p>Afterparty has moved to <a href="https://afterparty-mac.vercel.app/">afterparty-mac.vercel.app</a>.</p></body></html>
+          EOF
+          cp out/index.html out/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: out
       - id: deployment
         uses: actions/deploy-pages@v4
