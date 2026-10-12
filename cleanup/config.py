@@ -142,6 +142,38 @@ def _pending_entries(names):
     return out
 
 
+def _pending_to_fold():
+    """{pending file: protected path} for every well-formed pending protection there is now, for update() to fold
+    into the settings. Best effort: one that can't be read or isn't ours is left where it is (it keeps protecting,
+    and load() still reports it as malformed); one that vanished was already merged and withdrawn."""
+    out = {}
+    try:
+        names = _pending_names()
+    except ConfigError:
+        return out
+    for n in names:
+        try:
+            out.update((os.path.join(pending_dir(), k), v) for k, v in _pending_entries([n]).items())
+        except (_Vanished, ConfigError):
+            continue
+    return out
+
+
+def _withdraw(pending, path):
+    """Ruling R13 for protections update() folded in: withdraw them only once the settings that hold them are durable
+    (folder fsync), and only a file that still says what was merged. On any doubt it stays and keeps protecting."""
+    try:
+        _fsync_dir(os.path.dirname(path))
+    except OSError:
+        return
+    for p, k in pending.items():
+        try:
+            if _pending_entries([os.path.basename(p)]) == {os.path.basename(p): k}:
+                os.unlink(p)
+        except (_Vanished, ConfigError, OSError):
+            pass
+
+
 def load(path=None, attempts=5):
     """The settings, validated, with every pending protection added to `keep` (rulings R8, R10). This is the only
     settings authority, so `current_keep` and therefore `executor.last_gate`'s fresh read see a Protect press the
@@ -241,7 +273,10 @@ def update(mutate, path=None, attempts=3, before_replace=None):
 
     Honest limit: a program that writes config.json WITHOUT Afterparty's lock can still lose a change it makes in
     the instant between our last comparison and the swap completing. Every Afterparty writer takes the lock, so
-    Afterparty's own writers never interleave."""
+    Afterparty's own writers never interleave.
+
+    Every write also folds in the pending protections (add_keep's that couldn't be merged then), after `mutate`, so
+    they only ever add to `keep`; each is withdrawn only after that write is durable (R13)."""
     path = path or config_path()
     with writers_lock(path):
         try:
@@ -250,8 +285,12 @@ def update(mutate, path=None, attempts=3, before_replace=None):
                 cfg = validate({}) if before is None else _parse(before, path)
                 work = json.loads(json.dumps(cfg))
                 mutate(work)
+                pending = _pending_to_fold()
+                for k in pending.values():
+                    if _real(k) not in keep_paths(work):
+                        work["keep"].append(k)
                 new = validate(work)
-                if before is not None and new == cfg and _read(_sidecar(path)) == (new["python"] + "\n").encode("utf-8"):
+                if not pending and before is not None and new == cfg and _read(_sidecar(path)) == (new["python"] + "\n").encode("utf-8"):
                     return new
                 _write_sidecar(path, new["python"])
                 if before_replace is not None:
@@ -264,6 +303,7 @@ def update(mutate, path=None, attempts=3, before_replace=None):
                         raise ConfigError(str(e))
                     continue  # someone else saved meanwhile: theirs stays, we merge into it on the next pass
                 fsops.note_written_or_warn(path, data)
+                _withdraw(pending, path)
                 return new
         except BaseException:
             _reconcile_sidecar(path)

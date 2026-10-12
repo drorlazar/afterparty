@@ -30,6 +30,10 @@ if [ -z "${AFTERPARTY_APP_BUILD_DIR:-}" ] && { [ -e "$APP" ] || [ -L "$APP" ]; }
   fi
   exit 3
 fi
+if [ -n "${AFTERPARTY_APP_BUILD_DIR:-}" ]; then
+  [ -d "$AFTERPARTY_APP_BUILD_DIR" ] && [ ! -e "$AFTERPARTY_APP_BUILD_DIR/Afterparty.app" ] || {
+    echo "build-app: AFTERPARTY_APP_BUILD_DIR must be an existing folder without Afterparty.app in it" >&2; exit 2; }
+fi
 if ! /usr/bin/xcode-select -p >/dev/null 2>&1 || ! /usr/bin/xcrun --find swiftc >/dev/null 2>&1 \
    || ! /usr/bin/xcrun --show-sdk-path >/dev/null 2>&1; then
   echo "build-app: Swift and the macOS SDK are needed. Run xcode-select --install, then build again." >&2
@@ -37,7 +41,9 @@ if ! /usr/bin/xcode-select -p >/dev/null 2>&1 || ! /usr/bin/xcrun --find swiftc 
 fi
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/afterparty-build.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT          # our own mktemp folder
+STAGE=""
+# Only folders this run created with mktemp: the work folder and, once made, the stage folder.
+trap 'rm -rf "$WORK"; if [ -n "$STAGE" ]; then rm -rf "$STAGE"; fi' EXIT
 OUT="$WORK/Afterparty.app"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 /usr/bin/xcrun swiftc -O -swift-version 5 -module-name Afterparty -framework Cocoa -framework WebKit \
@@ -62,11 +68,13 @@ cat > "$OUT/Contents/Info.plist" <<EOF
   <key>AfterpartyRepo</key><string>$REPO_XML</string>
 </dict></plist>
 EOF
-codesign --force --sign - "$OUT" >/dev/null 2>&1   # ad-hoc signature so Gatekeeper/TCC can identify it
+# ad-hoc signature so Gatekeeper/TCC can identify it
+if ! codesign --force --sign - "$OUT" >/dev/null 2>&1; then
+  echo "build-app: codesign failed; the app was not installed. Check that the Command Line Tools work, then build again." >&2
+  exit 70
+fi
 
 if [ -n "${AFTERPARTY_APP_BUILD_DIR:-}" ]; then
-  [ -d "$AFTERPARTY_APP_BUILD_DIR" ] && [ ! -e "$AFTERPARTY_APP_BUILD_DIR/Afterparty.app" ] || {
-    echo "build-app: AFTERPARTY_APP_BUILD_DIR must be an existing folder without Afterparty.app in it" >&2; exit 2; }
   cp -R "$OUT" "$AFTERPARTY_APP_BUILD_DIR/Afterparty.app"
   echo "built $AFTERPARTY_APP_BUILD_DIR/Afterparty.app ($VERSION)"
   exit 0
@@ -78,8 +86,8 @@ cp -R "$OUT" "$STAGE/Afterparty.app"
 /bin/mv -n "$STAGE/Afterparty.app" "$DEST/" || true   # -n: never replaces; whatever appeared meanwhile wins
 if [ -e "$STAGE/Afterparty.app" ]; then
   echo "build-app: $APP appeared while building; it was left alone." >&2
-  rm -rf "$STAGE"; exit 3           # our mktemp folder, holding only our new copy
+  exit 3                            # the exit trap removes our stage folder (it holds only our new copy)
 fi
-rmdir "$STAGE"
+rmdir "$STAGE" && STAGE=""
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
 echo "installed $APP ($VERSION)"

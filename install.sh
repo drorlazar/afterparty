@@ -19,6 +19,7 @@ want=""
 prev=""
 for arg in "$@"; do
   [ "$prev" = "--python" ] && want=$arg
+  case $arg in --python=*) want=${arg#--python=} ;; esac
   prev=$arg
 done
 py=$("$here/bin/afterparty-pick-python" ${want:+"$want"}) || exit $?

@@ -11,3 +11,4 @@
 fb3c1c907f394951e1d5cdce64d1da3868423a94c9d26524a704e2bd356cc96c  site/assets/film/habit-2.webm  film encode (ffmpeg bitexact remux, metadata stripped), reviewed 2026-10-11: ffprobe/exiftool show only the encoder tag, no XMP
 44e9141fbac2f2a559f6baaea771449c30dd46267d2611d7e2fa1b9fdc5d2249  site/assets/film/habit-3.webm  film encode (ffmpeg bitexact remux, metadata stripped), reviewed 2026-10-11: ffprobe/exiftool show only the encoder tag, no XMP
 47be8d37656c5a61a21c4deb6d3bb7f8d69716bbebdc1fd950c6a1400fd5c41c  site/assets/film/habit-4.webm  film encode (ffmpeg bitexact remux, metadata stripped), reviewed 2026-10-11: ffprobe/exiftool show only the encoder tag, no XMP
+614e1cb904dfc358808a13e01f724fd8e3d1592ba7a943d66feb2915316e9f12  app/AppIcon.icns  app icon (iconutil output), reviewed 2026-10-12: exiftool can't parse icns (Warning); embedded PNGs carry only sRGB + eXIf pixel size/colour space, info entry is an empty NSKeyedArchiver dict

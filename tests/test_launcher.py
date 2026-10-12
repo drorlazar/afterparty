@@ -65,7 +65,7 @@ def test_stale_recorded_server_is_stopped_before_respawn(tmp_path, env, monkeypa
     # Review I7: an old server whose token no longer matches must not be left running.
     import subprocess
     monkeypatch.setenv("HOME", env["HOME"])
-    old = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "cleanup.cli", "serve"])
+    old = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "cleanup.cli", "serve", "--port", "1"])
     state = tmp_path / "server.json"
     state.write_text(json.dumps({"pid": old.pid, "port": 1, "token": "stale"}))
     launcher.ensure_server(open_browser=False, state_path=str(state), python=sys.executable)
@@ -140,7 +140,7 @@ def test_stop_server_never_signals_a_process_group_or_a_bogus_pid(tmp_path, monk
 def test_stop_server_signals_only_a_process_that_is_our_server(tmp_path, monkeypatch):
     seen = _stops(monkeypatch)
     state = tmp_path / "server.json"
-    state.write_text(json.dumps({"mode": "spawn", "pid": os.getpid()}))   # alive, but pytest, not our server
+    state.write_text(json.dumps({"mode": "spawn", "pid": os.getpid(), "port": 1}))   # alive, but pytest, not our server
     assert launcher.stop_server(state_path=str(state)) == (True, "")
     assert seen["kill"] == []
     monkeypatch.setattr(launcher.subprocess, "run", lambda *a, **k: launcher.subprocess.CompletedProcess(

@@ -259,9 +259,15 @@ def sweep(parent):
         held = [x for x in ("old", "item") if os.path.lexists(os.path.join(p, x))]
         if held and not d.get("verified"):
             orig = d.get("orig")
-            if not orig or len(held) != 1 or fsops.rename_exclusive(os.path.join(p, held[0]), orig) is not None:
+            if not isinstance(orig, str) or not orig or len(held) != 1 \
+                    or fsops.rename_exclusive(os.path.join(p, held[0]), orig) is not None:
                 continue
-        shutil.rmtree(p)
+        try:
+            shutil.rmtree(p)
+        except OSError as e:  # one stage we can't clear never stops the sweep of the others; what's left stays
+            print("Afterparty: couldn't clear the staging folder %s (%s); look inside before removing it" % (p, e),
+                  file=sys.stderr)
+            continue
         cleared.append(d.get("purpose"))
     return cleared
 
@@ -292,9 +298,19 @@ def _clear_stage(stage, ours):
 
 
 def _backup(path, data, backup_dir):
-    if not os.path.isdir(backup_dir):
-        os.makedirs(backup_dir, mode=0o700, exist_ok=True)
-        fsops.note_made(backup_dir)  # so --purge may remove the folder once it is empty
+    # each missing folder on the way is made exclusively and receipted only if this mkdir made it (one that appears
+    # meanwhile is someone else's: never receipted), so --purge may remove it once it is empty; the folder is made,
+    # so a receipt that can't be written only warns (as for the backup file below)
+    missing, p = [], os.path.abspath(backup_dir)
+    while not os.path.isdir(p) and os.path.dirname(p) != p:
+        missing.append(p)
+        p = os.path.dirname(p)
+    for d in reversed(missing):
+        try:
+            os.mkdir(d, 0o700)
+        except FileExistsError:
+            continue
+        fsops.note_made_or_warn(d)
     name = "%s.%d-%s.bak" % (os.path.basename(path), time.time_ns(), uuid.uuid4().hex[:8])
     fd = os.open(os.path.join(backup_dir, name), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as f:
@@ -335,7 +351,10 @@ def edit(path, transform, backup_dir=None, attempts=3, before_check=None):
                 f.flush()
                 os.fsync(f.fileno())
             if old is not None:
-                os.chmod(tmp, os.stat(real).st_mode & 0o7777)
+                try:
+                    os.chmod(tmp, os.stat(real).st_mode & 0o7777)
+                except FileNotFoundError:
+                    continue  # it vanished after the read: start over from a fresh read
             update_mark(stage, new_sum=fsops.file_sum(tmp), old_sum=None if old is None else fsops.data_sum(old))
             if old is not None and backup_dir:
                 _backup(real, old, backup_dir)

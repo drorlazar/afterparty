@@ -42,6 +42,8 @@ def test_intel_homebrew_python_works_without_the_command_line_tools(tmp_path):
 
 def test_default_candidates_cover_every_supported_install():
     text = open(PICK).read()
+    line = next(l for l in text.splitlines() if l.startswith("candidates=${AFTERPARTY_PYTHON_CANDIDATES:-"))
+    text = line
     order = ["/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3",
              "/Library/Frameworks/Python.framework/Versions/Current/bin/python3"]
     assert [text.index(c) for c in order] == sorted(text.index(c) for c in order)
@@ -63,3 +65,12 @@ def test_an_explicit_choice_is_still_checked(tmp_path):
     assert _pick(tmp_path, "", args=[bad]).returncode == 69
     assert _pick(tmp_path, "", args=["python3"]).returncode == 69      # must be an absolute path
     assert _pick(tmp_path, "", args=[sys.executable]).stdout.strip() == sys.executable
+
+
+def test_a_candidate_path_may_contain_spaces(tmp_path):
+    d = tmp_path / "with space"
+    d.mkdir()
+    py = d / "python3"
+    py.symlink_to(sys.executable)
+    r = _pick(tmp_path, str(tmp_path / "missing one") + "\n" + str(py))
+    assert r.returncode == 0 and r.stdout.strip() == str(py), r.stderr

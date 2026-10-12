@@ -201,8 +201,11 @@ def bootstrap(state=None):
     edits.update_mark(stage, record_sum=fsops.text_sum(text))  # before the record exists (recovery checks it)
     edits.write_atomic(os.path.join(stage, rel, MANIFEST), text, None)
     edits.checkpoint("bootstrap staged")
-    if fsops.rename_exclusive(os.path.join(stage, top), os.path.join(base, top)) is not None:
+    moved = fsops.rename_exclusive(os.path.join(stage, top), os.path.join(base, top))
+    if moved == "conflict":
         raise Changed("%s appeared while installing; run the installer again" % os.path.join(base, top))
+    if moved is not None:
+        raise OSError("%s couldn't be created (%s); run the installer again" % (os.path.join(base, top), moved))
     edits.checkpoint("bootstrap moved")
     shutil.rmtree(stage)  # our marker is all that's left in it
     return chain
@@ -274,13 +277,14 @@ def put(dst, build, prior, before_place=None):
         edits.checkpoint("moved aside " + os.path.basename(dst))
         with _put_back_on_error(old, dst, stage):
             same = sum_of(old) == prior
+            if same:  # under the guard: if this receipt can't be written, the previous copy goes back
+                edits.update_mark(stage, verified=True, old_sum=prior)
         if not same:
             if fsops.rename_exclusive(old, dst) is not None:
                 raise Changed("%s changed after the plan and something new is in its place; the previous copy is "
                               "kept at %s" % (dst, old))
             shutil.rmtree(stage)
             raise Changed("%s changed after the plan; it was left as it is" % dst)
-        edits.update_mark(stage, verified=True, old_sum=prior)
     if before_place is not None:
         before_place()
     if fsops.rename_exclusive(new, dst) is not None:
@@ -312,9 +316,13 @@ def take_if(path, ok, trash=None):
         return "gone"
     edits.checkpoint("moved for removal " + os.path.basename(path))
     with _put_back_on_error(item, path, stage):
+        try:  # taken before ok() judges it: a copy that changes after this is kept by a sweep, never cleared
+            item_sum = sum_of(item)
+        except OSError:
+            item_sum = None  # unreadable: ok() decides; a sweep then keeps a verified copy (no sum matches None)
         passed = ok(item)
         if passed:
-            edits.update_mark(stage, verified=True, item_sum=sum_of(item))
+            edits.update_mark(stage, verified=True, item_sum=item_sum)
     if passed:
         shutil.rmtree(stage)  # the checked copy and our marker
         return "gone"

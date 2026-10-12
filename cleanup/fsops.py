@@ -16,7 +16,10 @@ import time
 from contextlib import contextmanager
 
 RENAME_EXCL = 0x00000004  # renamex_np flag: fail if the destination exists (atomic, no race); macOS 10.12+
-_libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+try:
+    _libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+except OSError:  # no C library to load: _renamex is then None and every exclusive rename fails closed
+    _libc = None
 _renamex = getattr(_libc, "renamex_np", None)
 
 
@@ -323,6 +326,19 @@ def note_written_or_warn(path, data):
             _unreceipted.add(folder)
             print("Afterparty: no write receipt for %s (%s); --purge will move it to the Trash instead of deleting "
                   "it" % (path, e), file=sys.stderr)
+
+
+def note_made_or_warn(folder):
+    """note_made for a folder that has already been made (the same rule as note_written_or_warn): without the
+    receipt, that folder only gets the Trash treatment at --purge (the safe direction). Reported once per parent."""
+    try:
+        note_made(folder)
+    except (ReceiptError, OSError) as e:
+        parent = os.path.dirname(folder.rstrip(os.sep))
+        if parent not in _unreceipted:
+            _unreceipted.add(parent)
+            print("Afterparty: no receipt for the folder %s (%s); --purge will move it to the Trash instead of removing it" % (folder, e),
+                  file=sys.stderr)
 
 
 @contextmanager

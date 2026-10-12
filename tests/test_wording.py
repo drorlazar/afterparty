@@ -1,11 +1,14 @@
 from tests.conftest import REPO
 
+# every text format a user can see: code, markup, styles, icons and data files
+TEXT_SUFFIXES = (".py", ".js", ".mjs", ".cjs", ".html", ".css", ".svg", ".json", ".txt", ".md", ".webmanifest")
+
 
 def test_public_strings_say_afterparty():
     hits = []
     for base in ("cleanup", "web"):
         for p in (REPO / base).rglob("*"):
-            if p.suffix in (".py", ".js", ".html", ".css") and "CleanUp" in p.read_text(encoding="utf-8"):
+            if p.suffix in TEXT_SUFFIXES and "CleanUp" in p.read_text(encoding="utf-8"):
                 hits.append(str(p.relative_to(REPO)))
     assert hits == []
 

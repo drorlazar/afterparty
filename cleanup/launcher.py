@@ -85,7 +85,11 @@ def _stop_stale(s):
         cmd = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True).stdout
     except OSError:
         return
-    if "cleanup.cli" in cmd and "serve" in cmd:
+    port = s.get("port")
+    # the recorded port too: a reused pid running some other `cleanup.cli serve` (a dev server) is left alone
+    argv = cmd.split()
+    if "cleanup.cli" in argv and "serve" in argv and isinstance(port, int) and \
+            any(a == "--port" and b == str(port) for a, b in zip(argv, argv[1:])):
         try:
             os.kill(pid, signal.SIGTERM)
         except OSError:

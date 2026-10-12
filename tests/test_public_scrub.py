@@ -28,7 +28,9 @@ def test_pyproject_is_generic():
 
 def test_diskclean_skill_is_retired():
     assert not (REPO / "skills" / "diskclean").exists()
-    assert sorted(p.name for p in (REPO / "skills").iterdir()) == ["afterparty", "tidy"]
+    # the skill folders only: a stray Finder .DS_Store or other dotfile isn't a skill
+    skills = sorted(p.name for p in (REPO / "skills").iterdir() if p.is_dir() and not p.name.startswith("."))
+    assert skills == ["afterparty", "tidy"]
 
 
 def test_tier4_offers_nothing_from_one_persons_mac(env, monkeypatch):

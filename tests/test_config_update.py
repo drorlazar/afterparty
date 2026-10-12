@@ -27,34 +27,59 @@ def _child(code):
                             env=dict(os.environ, PYTHONPATH=str(REPO)))
 
 
+def _wait_for(cond, what, timeout=30):
+    end = time.time() + timeout
+    while not cond():
+        assert time.time() < end, "timed out waiting for " + what
+        time.sleep(0.01)
+
+
 def test_settings_writers_take_turns(cfg):
-    """The map app's Protect button, pressed while the installer is mid-update, waits and then lands."""
+    """The map app's Protect button, pressed while the installer is mid-update, waits and then lands. Event-based:
+    the child's pending protection appearing means it is past publishing and on its way to our lock."""
     child = {}
 
     def map_app_protects():
         if not child:
             child["p"] = _child("config.add_keep('~/Work/client')")
-            time.sleep(0.5)
+            _wait_for(lambda: os.listdir(config.pending_dir()) if os.path.isdir(config.pending_dir()) else False,
+                      "the child's pending protection")
+            with pytest.raises(config.fsops.Busy):   # we hold the settings lock, so it can't merge yet
+                with config.writers_lock(blocking=False):
+                    pass
             assert child["p"].poll() is None          # it is waiting for our lock
 
     config.update(lambda c: c["roots"].append("~/Projects"), before_replace=map_app_protects)
     assert child["p"].wait(timeout=30) == 0
     saved = json.loads(cfg.read_text())
     assert saved["keep"] == ["~/Work/client"] and saved["roots"] == ["~/Work", "~/Projects"]
-    assert saved["autopilot"] == "clean"
+    assert saved["autopilot"] == "clean" and os.listdir(config.pending_dir()) == []
 
 
-def test_save_takes_the_same_lock(cfg):
-    child = {}
+def test_save_takes_the_same_lock(cfg, monkeypatch):
+    import threading
+    entered, done, locks = threading.Event(), {}, []
+    real_held = config.fsops.held
 
     def someone_saves():
-        if not child:
-            child["p"] = _child("config.save({'version': 1, 'roots': ['~/Saved']})")
-            time.sleep(0.5)
-            assert child["p"].poll() is None
+        if not done:
+            def held(path, *a, **k):             # save's lock request, recorded before it blocks on ours
+                locks.append(path)
+                entered.set()
+                return real_held(path, *a, **k)
+            monkeypatch.setattr(config.fsops, "held", held)
+            done["t"] = threading.Thread(target=lambda: done.setdefault(
+                "out", config.save({"version": 1, "roots": ["~/Saved"]})))
+            done["t"].start()
+            assert entered.wait(30)
+            assert done["t"].is_alive()
 
     config.update(lambda c: c["roots"].append("~/Projects"), before_replace=someone_saves)
-    assert child["p"].wait(timeout=30) == 0
+    done["t"].join(30)
+    assert locks == [str(cfg.parent / ".lock")]
+    # save waited for our write and then replaced it (had it slipped in before our write, our compare-and-swap
+    # would have merged ~/Projects into its content)
+    assert json.loads(cfg.read_text())["roots"] == ["~/Saved"] and done["out"]["roots"] == ["~/Saved"]
 
 
 def test_update_never_drops_a_concurrent_keep_entry(cfg):

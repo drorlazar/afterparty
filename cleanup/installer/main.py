@@ -113,7 +113,8 @@ def native_app_data():
     and a name with our bundle id proves nothing. Uninstall lists the ones present so the user can remove them."""
     lib = os.path.join(home(), "Library")
     return [os.path.join(lib, "WebKit", BUNDLE_ID), os.path.join(lib, "Caches", BUNDLE_ID),
-            os.path.join(lib, "HTTPStorages", BUNDLE_ID), os.path.join(lib, "HTTPStorages", BUNDLE_ID + ".binarycookies"),
+            os.path.join(lib, "HTTPStorages", BUNDLE_ID),
+            os.path.join(lib, "HTTPStorages", BUNDLE_ID + ".binarycookies"),
             os.path.join(lib, "Preferences", BUNDLE_ID + ".plist"),
             os.path.join(lib, "Saved Application State", BUNDLE_ID + ".savedState")]
 
@@ -405,8 +406,10 @@ def plan_blocks(man, adopt, scratch_days):
             steps.append(Step("block", path, state, label, fields={"sum": want, "pad": "", "created": False},
                               note=_note(state, path, True)))
         elif item is not None and owned.text_sum(cur) == item.get("sum"):
-            steps.append(Step("block", path, "update", label, fields={"sum": want},
-                              do=lambda intend, path=path, cur=cur: blocks.put(path, block, cur, None, backup_dir=backup_dir()) or {}))
+            def do(intend, path=path, cur=cur):
+                blocks.put(path, block, cur, None, backup_dir=backup_dir())
+                return {}
+            steps.append(Step("block", path, "update", label, fields={"sum": want}, do=do))
         else:
             steps.append(Step("block", path, "conflict", label, note="has an Afterparty block that was edited by hand"))
     return steps
@@ -416,7 +419,8 @@ def _job_do(lbl, path, text, prior, state, pending=False):
     """Writes (new/update) and (re)starts one launchd job, both under the cleanup run lock, so bridge.Busy leaves the
     old plist in place. A job whose record was still pending before this run (an earlier run stopped after writing
     its plist but before restarting it) is restarted even when it now reads "same": launchd may still run the old
-    definition. Only a done, unchanged and loaded job is left alone."""
+    definition. Only a done (or just adopted), unchanged and loaded job is left alone; an adopted one that isn't
+    loaded is started now, like an unchanged one."""
     def build(p):
         with os.fdopen(os.open(p, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644), "w", encoding="utf-8") as f:
             f.write(text)
@@ -429,7 +433,7 @@ def _job_do(lbl, path, text, prior, state, pending=False):
         with cleanup_lock():  # bridge.Busy: never write or restart a job while a cleanup runs
             if state in ("new", "update"):
                 owned.put(path, build, prior)
-            elif state == "same" and not pending and jobs.is_loaded(lbl):
+            elif state in ("same", "adopt") and not pending and jobs.is_loaded(lbl):
                 return {}  # unchanged and running: left alone (a restart would stop a cleanup it is running)
             ok, msg = jobs.start(lbl, path)
         if not ok:
@@ -463,7 +467,8 @@ def plan_app(man, adopt):
     if os.path.islink(dst) or (os.path.lexists(dst) and bundle_id(dst) != BUNDLE_ID):
         return Step("app", dst, "conflict", tilde(dst), note="%s exists and isn't Afterparty's app" % tilde(dst))
     if not swift_ready():
-        return Step("app", dst, "skip", tilde(dst), note="needs Swift and the macOS SDK (xcode-select --install); skipped")
+        return Step("app", dst, "skip", tilde(dst),
+                    note="needs Swift and the macOS SDK (xcode-select --install); skipped")
     now = owned.sum_of(dst)
     item = man.get("app", dst)
     if now is None:
@@ -488,7 +493,12 @@ def plan_app(man, adopt):
             built = os.path.join(work, "Afterparty.app")
             if r.returncode != 0 or bundle_id(built) != BUNDLE_ID:
                 raise RuntimeError("the app build failed: " + (r.stderr or r.stdout).strip()[-400:])
-            intend(sum=owned.tree_sum(built), prior=now)  # the receipt names the exact bundle before it is placed
+            fresh = owned.tree_sum(built)
+            if item is not None and item.get("state") == "done" and item.get("sum") == now == fresh:
+                # the build matches the installed, recorded bundle exactly: nothing to swap (a swap would only
+                # give macOS a new copy to re-check, e.g. for Full Disk Access); its receipt stays as it is
+                return {}
+            intend(sum=fresh, prior=now)  # the receipt names the exact bundle before it is placed
             # G0 M2: the completion receipt is the sum of the copy we staged and placed, never the live bundle
             return {"sum": owned.put(dst, lambda p: shutil.copytree(built, p, symlinks=True), now)}
         finally:
@@ -526,6 +536,8 @@ def apply(steps, man):
         item = man.get(s.kind, s.path)
         try:
             if s.state == "adopt":
+                if s.rerun:  # an adopted job is loaded now (left alone if it already runs), then recorded
+                    s.do(lambda **fields: None)
                 man.done(s.kind, s.path, adopted=True, **s.fields)
                 continue
             if s.state == "same":
@@ -659,6 +671,13 @@ def _install_locked(a, python):
 _purge_hook = None  # test seam: called with "locked" (every lock proven free and held) and "unlinked"
 
 
+def _created_dirs(items):
+    """The folders the installer made, for --purge's "ours" test: each `dir` receipt whose path is still a real
+    folder. A recorded path that is now a file or a symlink (say a pending receipt whose folder someone else then
+    put there) isn't ours: nothing in or at it counts as Afterparty's."""
+    return {it["path"] for it in items if it["kind"] == "dir" and _real_dir(it["path"])}
+
+
 def _purge_refusal():
     h = os.path.realpath(home())
     for d in (config.config_dir(), config.state_dir()):
@@ -747,7 +766,8 @@ class Purge:
             if p in skip or name == fsops.RECEIPTS:
                 continue
             if name.startswith(edits.STAGE_PREFIX):
-                out.append(("keep", p, "an unfinished Afterparty step it couldn't verify; look inside before deleting it"))
+                out.append(("keep", p,
+                            "an unfinished Afterparty step it couldn't verify; look inside before deleting it"))
             elif os.path.isdir(p) and not os.path.islink(p):
                 self.plan(p, skip, out)
             elif name in rec:
@@ -761,8 +781,7 @@ class Purge:
         """Phase 1, the actions planned above (each deletion staged and re-checked by take_if)."""
         for action, p, extra in actions:
             if action == "remove":
-                self.remove(p, lambda s, want=extra: os.path.isfile(s) and not os.path.islink(s)
-                            and fsops.file_sum(s) == want)
+                self.remove(p, _file_is(extra))
             elif action == "trash":
                 self.to_trash(p)
             else:
@@ -799,14 +818,26 @@ class Purge:
             self.to_trash(folder)
 
 
+def _file_is(want):
+    """take_if's check for a receipted file: a plain file whose content has checksum `want`. One that can't be read
+    fails the check (it is then put back or trashed, never deleted, and never a traceback part-way through)."""
+    def ok(staged):
+        try:
+            return want is not None and os.path.isfile(staged) and not os.path.islink(staged) \
+                and fsops.file_sum(staged) == want
+        except OSError:
+            return False
+    return ok
+
+
 def _empty(empty):
     def ok(staged):
         if not os.path.isfile(staged) or os.path.islink(staged):
             return False
         try:
             text = edits.read_text(staged)
-        except ValueError:
-            return False
+        except (OSError, ValueError):
+            return False  # can't be read: not provably what we left, so it isn't deleted
         return text == empty
     return ok
 
@@ -840,10 +871,13 @@ def git_bin():
 
 
 def _git(repo, *args):
+    """git with only the repository's own config: no global or system config, so nothing there (url.insteadOf,
+    hooks paths, excludes) can redirect the update's fetch or hide a file from the clean-clone check."""
     cmd = [git_bin(), "-C", repo] + list(args)
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=300,
-                              env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+                              env=dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_CONFIG_NOSYSTEM="1",
+                                       GIT_CONFIG_GLOBAL=os.devnull))
     except (OSError, subprocess.TimeoutExpired) as e:
         return subprocess.CompletedProcess(cmd, 1, "", str(e))
 
@@ -1025,7 +1059,7 @@ def _uninstall_locked(purge, yes, dry_run):
         # 2. Prove nobody holds or waits for a lock: take each without waiting, in the fixed order (run lock, then
         #    settings lock). If any is held, stop: no data has been touched.
         from cleanup.plan import bridge
-        created = {it["path"] for it in items if it["kind"] == "dir"}
+        created = _created_dirs(items)
         for folder in (config.config_dir(), config.state_dir()):
             for d, dirs, _ in os.walk(folder):
                 # finish our own crashed steps first: a lock file a crashed purge had moved aside goes back before
@@ -1054,8 +1088,7 @@ def _uninstall_locked(purge, yes, dry_run):
                     return _stop_for_entry_points(left)
                 p.run(actions)                                      # 3. data
                 for lock_file, want in lock_wants:                  # 4. the lock files, as the final data step
-                    p.remove(lock_file, lambda s, want=want: want is not None and os.path.isfile(s)
-                             and not os.path.islink(s) and fsops.file_sum(s) == want)
+                    p.remove(lock_file, _file_is(want))
                 if _purge_hook:
                     _purge_hook("unlinked")
                 for folder in (config.config_dir(), config.state_dir()):
@@ -1085,6 +1118,12 @@ def _uninstall_locked(purge, yes, dry_run):
             print("", file=sys.stderr)
             print("Everything the installer added is removed, but %s, so Afterparty's settings and history were "
                   "left alone. Run `./uninstall.sh --purge` again when it has finished." % why, file=sys.stderr)
+            return FAILED
+        except OSError as e:
+            print("", file=sys.stderr)
+            print("Everything the installer added is removed, but --purge stopped part-way through Afterparty's "
+                  "settings and history: %s. What is left stays, with the install record. Give yourself access to "
+                  "it (or remove it by hand), then run `./uninstall.sh --purge` again." % e, file=sys.stderr)
             return FAILED
         for d in state_chain:
             try:
@@ -1193,7 +1232,7 @@ def _as_written(man):
     def ok(staged):
         try:
             return os.path.isfile(staged) and not os.path.islink(staged) and edits.read_text(staged) == want
-        except ValueError:
+        except (OSError, ValueError):
             return False
     return ok
 
@@ -1214,8 +1253,7 @@ def _drop_server_state():
     for path in (launcher.default_state(), os.path.join(config.state_dir(), launcher.SERVER_LABEL + ".plist")):
         want = rec.get(os.path.basename(path))
         try:
-            r = owned.take_if(path, lambda s, want=want: want is not None and os.path.isfile(s)
-                              and not os.path.islink(s) and fsops.file_sum(s) == want)
+            r = owned.take_if(path, _file_is(want))
         except owned.Changed as e:
             out.append(str(e))
             continue
@@ -1244,8 +1282,13 @@ def _reinstall(repo, lock_fd):
     except config.ConfigError as e:
         print("update: the settings are invalid (%s); fix them, then run ./install.sh --yes." % e, file=sys.stderr)
         return BAD
-    env = dict(os.environ, PYTHONPATH=repo, AFTERPARTY_INSTALL_LOCK_FD=str(lock_fd))  # the child shares our lock
-    return subprocess.run([py, "-B", "-m", "cleanup.installer", "install", "--yes", "--reuse-answers", "--python", py],
+    env = dict(os.environ, AFTERPARTY_INSTALL_LOCK_FD=str(lock_fd))  # the child shares our lock
+    # `-m cleanup.installer`, isolated (-I) like install.sh: no PYTHON* variables, no user site, no current folder;
+    # the code folder is put on the path explicitly
+    entry = ("import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); "
+             "runpy.run_module(sys.argv.pop(1), run_name='__main__')")
+    return subprocess.run([py, "-I", "-B", "-c", entry, repo, "cleanup.installer", "install", "--yes",
+                           "--reuse-answers", "--python", py],
                           cwd=repo, env=env, pass_fds=(lock_fd,)).returncode
 
 
@@ -1297,7 +1340,8 @@ def update(repo=REPO, official=None, reinstall=None):
 
 
 def build_parser():
-    ap = argparse.ArgumentParser(prog="install.sh", description="Install Afterparty. Installing never deletes your files.")
+    ap = argparse.ArgumentParser(prog="install.sh",
+                                 description="Install Afterparty. Installing never deletes your files.")
     sub = ap.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("install")
     i.add_argument("--python", required=True)

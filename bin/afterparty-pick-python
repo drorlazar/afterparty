@@ -18,6 +18,10 @@ if [ $# -gt 0 ]; then
 fi
 # Apple's (needs the Command Line Tools), Apple-silicon Homebrew, Intel Homebrew, python.org.
 candidates=${AFTERPARTY_PYTHON_CANDIDATES:-/usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/Current/bin/python3}
+# Space-separated; a value with a newline is split on newlines only, so paths may contain spaces.
+nl='
+'
+case $candidates in *"$nl"*) IFS=$nl ;; esac
 for c in $candidates; do
   if works "$c"; then printf '%s\n' "$c"; exit 0; fi
 done

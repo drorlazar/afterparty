@@ -617,13 +617,19 @@ def make_handler(app):
                 if classify(path, home=os.path.expanduser("~"), fast=True)["class"] == "protected":
                     return self._send(403, {"error": "already protected by the system rules"})
                 rp = os.path.realpath(path)
-                if any(rp == k or rp.startswith(k.rstrip("/") + "/") for k in read_keep()):
+                try:
+                    kept = read_keep()
+                except config.ConfigError:
+                    kept = []  # unreadable settings: still publish the protection (add_keep reports it as pending)
+                if any(rp == k or rp.startswith(k.rstrip("/") + "/") for k in kept):
                     return self._send(409, {"error": "already protected"})
                 try:
                     config.add_keep(path)
                 except config.KeepPending as e:  # still protecting: the pending entry stays until a merge works
                     app.agent_cache.forget(path)
                     return self._send(409, {"error": str(e), "pending": True})
+                except config.ConfigError as e:  # refused before anything was published
+                    return self._send(409, {"error": "couldn't protect it (%s); nothing changed" % e})
                 except OSError as e:
                     return self._send(500, {"error": "couldn't protect it (%s); nothing changed" % (e.strerror or e)})
                 app.agent_cache.forget(path)

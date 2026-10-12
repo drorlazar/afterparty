@@ -1,7 +1,5 @@
 import errno
 
-import pytest
-
 from cleanup import fsops
 
 
@@ -42,5 +40,6 @@ def test_a_cross_volume_move_is_refused_not_emulated(tmp_path, monkeypatch):
 def test_undo_uses_the_shared_strict_rename():
     from cleanup.plan import undo
     assert undo._rename_exclusive is fsops.rename_exclusive
-    src = open(undo.__file__).read()
+    with open(undo.__file__) as f:
+        src = f.read()
     assert "os.rename(" not in src and "RENAME_EXCL" not in src

@@ -21,12 +21,19 @@ def template(name, repo=REPO):
 
 
 def fill(text, values):
-    for key, value in values.items():
-        text = text.replace("@" + key + "@", escape(str(value)))
-    left = sorted(set(re.findall(r"@[A-Z]+@", text)))
+    """One pass over the template: a value is never searched again, so one that contains `@X@` (a folder name, say)
+    is neither re-substituted nor mistaken for an unfilled placeholder."""
+    left = set()
+
+    def sub(m):
+        if m.group(1) in values:
+            return escape(str(values[m.group(1)]))
+        left.add(m.group(0))
+        return m.group(0)
+    out = re.sub(r"@([A-Z]+)@", sub, text)
     if left:
-        raise ValueError("plist template has unfilled values: " + ", ".join(left))
-    return text
+        raise ValueError("plist template has unfilled values: " + ", ".join(sorted(left)))
+    return out
 
 
 def render(name, python, home, log_dir, repo=REPO):

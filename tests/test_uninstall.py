@@ -605,6 +605,8 @@ def _commit(clone, text, msg):
 def origin_and_copy(tmp_path, monkeypatch):
     (tmp_path / "home").mkdir()
     monkeypatch.setenv("HOME", str(tmp_path / "home"))       # update locks the home folder: a pretend one
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)       # hermetic: never the developer's git config
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
     monkeypatch.delenv("AFTERPARTY_INSTALL_LOCK_FD", raising=False)
     bare, seed, copy = tmp_path / "origin.git", tmp_path / "seed", tmp_path / "copy"
     _git("init", "-q", "--bare", "-b", "main", str(bare))

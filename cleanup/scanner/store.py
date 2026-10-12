@@ -43,9 +43,14 @@ class Store:
             self._open()
 
     def _open(self):
-        self.db = sqlite3.connect(self.path, check_same_thread=False)
-        self.db.executescript(SCHEMA)
-        self.db.execute("SELECT count(*) FROM scan").fetchone()
+        db = sqlite3.connect(self.path, check_same_thread=False)
+        try:
+            db.executescript(SCHEMA)
+            db.execute("SELECT count(*) FROM scan").fetchone()
+        except BaseException:
+            db.close()  # never left open on the file we are about to move aside
+            raise
+        self.db = db
 
     # ---------------------------------------------------------------- writes
     def _rows(self, scan_id, result, root_parent=None):

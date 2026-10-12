@@ -18,6 +18,7 @@ import os
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import sys
 
@@ -40,9 +41,16 @@ BIN_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z
                        r"(?![A-Za-z0-9-])")
 BIN_DENY_MIN_RUN = 8
 HOME_PATH = re.compile(r"/Users/(?!(?:u|Shared)(?![A-Za-z0-9._-]))[A-Za-z0-9._-]+", re.I)
-HOSTNAME = re.compile(r"(?<![\w.-])[A-Za-z][A-Za-z0-9-]*\.local\b(?![\w.-])")
+# a machine on a private network: mDNS .local, and the usual home/office/cloud-internal suffixes
+HOSTNAME = re.compile(r"(?<![\w.-])[A-Za-z][A-Za-z0-9-]*"
+                      r"\.(?:local|lan|localdomain|internal|intranet|home\.arpa)\b(?![\w.-])", re.I)
+# RFC 1918, carrier-grade NAT (100.64/10, e.g. Tailscale), IPv4 link-local (169.254/16); IPv6 unique-local (the fc
+# and fd prefixes) and link-local (fe8 to feb)
 PRIVATE_IP = re.compile(r"(?<![\d.])(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|"
-                        r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})(?![\d.])")
+                        r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|"
+                        r"100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])(?:\.\d{1,3}){2}|169\.254(?:\.\d{1,3}){2})(?![\d.])"
+                        r"|(?<![\w:.])(?:f[cd][0-9a-f]{2}|fe[89ab][0-9a-f]):(?:[0-9a-f]{0,4}:){1,6}[0-9a-f]{0,4}"
+                        r"(?![\w:])", re.I)
 SECRETS = [
     ("aws-key", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
     # an AWS secret access key: 40 characters of [A-Za-z0-9/+=], digits optional (G0 M6)
@@ -211,9 +219,10 @@ def as_text(data):
 
 
 def binary_strings(data):
-    """Every printable ASCII run, however short, and every UTF-16LE run, one per line."""
+    """Every printable ASCII run, however short, and every UTF-16 run (LE and BE), one per line."""
     runs = re.sub(rb"[^\x20-\x7e]+", b"\n", data).decode("ascii")
     wide = [m.decode("utf-16-le") for m in re.findall(rb"(?:[\x20-\x7e]\x00){2,}", data)]
+    wide += [m.decode("utf-16-be") for m in re.findall(rb"(?:\x00[\x20-\x7e]){2,}", data)]
     return runs + "\n" + "\n".join(wide)
 
 
@@ -293,11 +302,18 @@ def scan_tree(root, deny):
     for p in files:
         rel = os.path.relpath(p, root)
         try:
-            size = os.path.getsize(p)
+            st = os.lstat(p)
+            if not stat.S_ISREG(st.st_mode):   # a FIFO, socket or device: opening it can hang or read forever
+                findings.append((rel, 0, "special-file", "not a regular file, folder or link; it can't be checked"))
+                continue
+            size = st.st_size
             if size > limit:
                 findings.append((rel, 0, "too-large", "%d bytes; files over %d bytes can't be checked" % (size, limit)))
                 continue
-            with open(p, "rb") as f:
+            fd = os.open(p, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+            with os.fdopen(fd, "rb") as f:
+                if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):   # swapped for something else since lstat
+                    raise OSError("not a regular file any more")
                 data = f.read()
         except OSError as e:
             findings.append((rel, 0, "unreadable", str(e)))
@@ -352,7 +368,8 @@ def _exif(exiftool, paths, xmp_only=False):
     out = {}
     for p in paths:
         e = by_path.get(os.path.abspath(p))
-        bad = e is None or any(k.split(":")[-1] == "Error" for k in e)
+        # a Warning means exiftool didn't read the whole file (a truncated or odd segment): not a full read
+        bad = e is None or any(k.split(":")[-1] in ("Error", "Warning") for k in e)
         out[p] = None if bad or (r.returncode != 0 and len(paths) == 1) else e
     if r.returncode != 0 and len(paths) > 1:
         for p in paths:                     # find exactly which files failed
@@ -445,9 +462,19 @@ def check_media(root, files, deny, mode, pinned=frozenset()):
     return findings
 
 
+GIT_REDIRECT = {"GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+                "GIT_COMMON_DIR", "GIT_NAMESPACE", "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM",
+                "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_REPLACE_REF_BASE", "GIT_GRAFT_FILE",
+                "GIT_SHALLOW_FILE", "GIT_QUARANTINE_PATH"}
+
+
 def _git(root, *args, text=True, stdin=None):
     git = shutil.which("git") or "/usr/bin/git"
-    env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1")      # `git replace` must not swap in clean-looking objects
+    # `git replace` must not swap in clean-looking objects; an inherited GIT_DIR & co. (a hook, an editor task) must
+    # not point `-C root` at another repository, and neither may config injected through the environment
+    env = {k: v for k, v in os.environ.items() if k not in GIT_REDIRECT and not k.startswith("GIT_CONFIG_KEY_")
+           and not k.startswith("GIT_CONFIG_VALUE_")}
+    env["GIT_NO_REPLACE_OBJECTS"] = "1"
     return subprocess.run([git, "-C", root] + list(args), capture_output=True, text=text, input=stdin, env=env)
 
 
@@ -552,9 +579,11 @@ def check_history(root, deny, tree_hashes=frozenset(), pinned_hashes=frozenset()
             out.append((".git", 0, "history", "can't resolve " + name))
     # objects reachable some other way (a tag pointing straight at a blob or a tree)
     objs = _git(root, "rev-list", "--objects", "--all")
+    if objs.returncode != 0:
+        return out + [(".git", 0, "history", "can't list every object")]
     kinds = _git(root, "cat-file", "--batch-check=%(objectname) %(objecttype)",
                  stdin="".join(line.split(" ", 1)[0] + "\n" for line in objs.stdout.splitlines()))
-    if objs.returncode != 0 or kinds.returncode != 0:
+    if kinds.returncode != 0 or len(kinds.stdout.splitlines()) != len(objs.stdout.splitlines()):
         return out + [(".git", 0, "history", "can't list every object")]
     names = dict((line.split(" ", 1) + [""])[:2] for line in objs.stdout.splitlines())
     for line in kinds.stdout.splitlines():   # a safety net: every blob also under the name rev-list gives it
